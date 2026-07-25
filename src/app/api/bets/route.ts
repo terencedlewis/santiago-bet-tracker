@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { game, betType, pick, odds, amount, payout, notes } = body;
+    const { game, betType, pick, odds, amount, payout, notes, gameDate } = body;
 
     if (!game || !betType || !pick || odds === undefined || amount === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         amount: Number(amount),
         payout: payout != null ? Number(payout) : null,
         notes: notes ? String(notes) : null,
+        gameDate: gameDate ? new Date(gameDate) : null,
         status: "PENDING",
       },
     });

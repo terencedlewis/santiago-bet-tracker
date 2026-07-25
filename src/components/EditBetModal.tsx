@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const BET_TYPES = ["Moneyline", "Run Line", "Over/Under", "First 5 Innings", "Parlay", "Prop"];
 
@@ -19,7 +25,26 @@ function calculatePayout(amount: number, odds: number): number {
   }
 }
 
-export function AddBetForm() {
+interface Bet {
+  id: number;
+  game: string;
+  betType: string;
+  pick: string;
+  odds: number;
+  amount: number;
+  status: string;
+  payout: number | null;
+  notes: string | null;
+  gameDate: string | null;
+}
+
+interface EditBetModalProps {
+  bet: Bet | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function EditBetModal({ bet, open, onOpenChange }: EditBetModalProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +59,21 @@ export function AddBetForm() {
     gameDate: "",
   });
 
+  useEffect(() => {
+    if (bet) {
+      setForm({
+        game: bet.game,
+        betType: bet.betType,
+        pick: bet.pick,
+        odds: String(bet.odds),
+        amount: String(bet.amount),
+        notes: bet.notes ?? "",
+        gameDate: bet.gameDate ? bet.gameDate.slice(0, 10) : "",
+      });
+      setError(null);
+    }
+  }, [bet]);
+
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
@@ -42,6 +82,7 @@ export function AddBetForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!bet) return;
     setError(null);
 
     const odds = parseInt(form.odds, 10);
@@ -60,12 +101,12 @@ export function AddBetForm() {
       return;
     }
 
-    const payout = calculatePayout(amount, odds);
+    const estimatedPayout = calculatePayout(amount, odds);
 
     setLoading(true);
     try {
-      const res = await fetch("/api/bets", {
-        method: "POST",
+      const res = await fetch(`/api/bets/${bet.id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           game: form.game.trim(),
@@ -73,7 +114,7 @@ export function AddBetForm() {
           pick: form.pick.trim(),
           odds,
           amount,
-          payout,
+          payout: bet.status === "PENDING" ? estimatedPayout : bet.payout,
           notes: form.notes.trim() || null,
           gameDate: form.gameDate || null,
         }),
@@ -81,11 +122,11 @@ export function AddBetForm() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || "Failed to save bet.");
+        setError(data.error || "Failed to update bet.");
         return;
       }
 
-      router.push("/pending");
+      onOpenChange(false);
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -102,12 +143,12 @@ export function AddBetForm() {
       : null;
 
   return (
-    <Card className="max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>New MLB Bet</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-5">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Bet</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
               {error}
@@ -116,9 +157,9 @@ export function AddBetForm() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="game">Game *</Label>
+              <Label htmlFor="edit-game">Game *</Label>
               <Input
-                id="game"
+                id="edit-game"
                 name="game"
                 placeholder="e.g. Yankees vs Red Sox"
                 value={form.game}
@@ -128,9 +169,9 @@ export function AddBetForm() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="betType">Bet Type *</Label>
+              <Label htmlFor="edit-betType">Bet Type *</Label>
               <Select
-                id="betType"
+                id="edit-betType"
                 name="betType"
                 value={form.betType}
                 onChange={handleChange}
@@ -144,9 +185,9 @@ export function AddBetForm() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="pick">Pick *</Label>
+              <Label htmlFor="edit-pick">Pick *</Label>
               <Input
-                id="pick"
+                id="edit-pick"
                 name="pick"
                 placeholder="e.g. Yankees ML"
                 value={form.pick}
@@ -156,9 +197,9 @@ export function AddBetForm() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="odds">Odds *</Label>
+              <Label htmlFor="edit-odds">Odds *</Label>
               <Input
-                id="odds"
+                id="edit-odds"
                 name="odds"
                 type="number"
                 placeholder="e.g. -110 or +150"
@@ -169,9 +210,9 @@ export function AddBetForm() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="amount">Wager ($) *</Label>
+              <Label htmlFor="edit-amount">Wager ($) *</Label>
               <Input
-                id="amount"
+                id="edit-amount"
                 name="amount"
                 type="number"
                 step="0.01"
@@ -183,7 +224,18 @@ export function AddBetForm() {
               />
             </div>
 
-            {previewPayout !== null && (
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-gameDate">Game Date</Label>
+              <Input
+                id="edit-gameDate"
+                name="gameDate"
+                type="date"
+                value={form.gameDate}
+                onChange={handleChange}
+              />
+            </div>
+
+            {previewPayout !== null && bet?.status === "PENDING" && (
               <div className="space-y-1.5">
                 <Label>Estimated Payout</Label>
                 <div className="flex h-9 items-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-green-700 font-medium">
@@ -191,23 +243,12 @@ export function AddBetForm() {
                 </div>
               </div>
             )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="gameDate">Game Date</Label>
-              <Input
-                id="gameDate"
-                name="gameDate"
-                type="date"
-                value={form.gameDate}
-                onChange={handleChange}
-              />
-            </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="edit-notes">Notes</Label>
             <Textarea
-              id="notes"
+              id="edit-notes"
               name="notes"
               placeholder="Optional notes..."
               value={form.notes}
@@ -216,21 +257,21 @@ export function AddBetForm() {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Add Bet"}
-            </Button>
+          <DialogFooter className="gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.back()}
+              onClick={() => onOpenChange(false)}
               disabled={loading}
             >
               Cancel
             </Button>
-          </div>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -37,6 +37,7 @@ export default async function PendingBetsPage() {
             bets={bets.map((b) => ({
               ...b,
               createdAt: b.createdAt.toISOString(),
+              gameDate: b.gameDate ? b.gameDate.toISOString() : null,
             }))}
             showActions
           />
