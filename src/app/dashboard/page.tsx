@@ -107,7 +107,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <BetTable bets={data.recentBets.map(b => ({
+            <BetTable bets={data.recentBets.map((b) => ({
               ...b,
               createdAt: b.createdAt.toISOString(),
             }))} />
