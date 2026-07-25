@@ -22,4 +22,5 @@ model Bet {
   status    String   @default("PENDING")
   payout    Float?
   notes     String?
+  gameDate  DateTime?
 }

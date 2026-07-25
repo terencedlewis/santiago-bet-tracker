@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/Sidebar";
 import { StatCard } from "@/components/StatCard";
-import { BetTable } from "@/components/BetTable";
+import { AdminBetList } from "@/components/AdminBetList";
 import {
   BarChart3,
   DollarSign,
@@ -126,15 +126,13 @@ export default async function AdminPage() {
         {/* All bets table */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">All Bets</h2>
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <BetTable
-              bets={data.bets.map((b) => ({
-                ...b,
-                createdAt: b.createdAt.toISOString(),
-              }))}
-              showActions
-            />
-          </div>
+          <AdminBetList
+            bets={data.bets.map((b) => ({
+              ...b,
+              createdAt: b.createdAt.toISOString(),
+              gameDate: b.gameDate ? b.gameDate.toISOString() : null,
+            }))}
+          />
         </div>
       </div>
     </div>
