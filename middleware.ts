@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, isAuthEnabled } from "@/lib/auth";
 
 const PUBLIC_ROUTES = new Set(["/login", "/api/auth/login"]);
 
 export function middleware(request: NextRequest) {
+  if (!isAuthEnabled()) {
+    return NextResponse.next();
+  }
+
   const { pathname, search } = request.nextUrl;
   const isAuthenticated = request.cookies.get(AUTH_COOKIE_NAME)?.value === AUTH_COOKIE_VALUE;
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "crypto";
-import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, getAppPassword } from "@/lib/auth";
+import { timingSafeEqual } from "crypto";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, getAppPassword, isAuthEnabled } from "@/lib/auth";
 
 const COOKIE_MAX_AGE_DAYS = 30;
 const COOKIE_MAX_AGE_SECONDS = (() => {
@@ -11,13 +11,35 @@ const COOKIE_MAX_AGE_SECONDS = (() => {
 })();
 
 function safeCompare(value: string, expected: string) {
-  const valueDigest = createHash("sha256").update(value).digest();
-  const expectedDigest = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(valueDigest, expectedDigest);
+  const valueBuffer = Buffer.from(value);
+  const expectedBuffer = Buffer.from(expected);
+  const maxLength = Math.max(valueBuffer.length, expectedBuffer.length, 1);
+  const paddedValue = Buffer.alloc(4 + maxLength);
+  const paddedExpected = Buffer.alloc(4 + maxLength);
+  paddedValue.writeUInt32BE(valueBuffer.length, 0);
+  paddedExpected.writeUInt32BE(expectedBuffer.length, 0);
+  valueBuffer.copy(paddedValue, 4);
+  expectedBuffer.copy(paddedExpected, 4);
+
+  return timingSafeEqual(paddedValue, paddedExpected);
 }
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isAuthEnabled()) {
+      const response = NextResponse.json({ success: true, authDisabled: true });
+      response.cookies.set({
+        name: AUTH_COOKIE_NAME,
+        value: AUTH_COOKIE_VALUE,
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: COOKIE_MAX_AGE_SECONDS,
+      });
+      return response;
+    }
+
     const body = await request.json();
     const password = typeof body?.password === "string" ? body.password : "";
     const expectedPassword = getAppPassword();
