@@ -8,23 +8,22 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const BET_TYPES = ["Moneyline", "Run Line", "Over/Under", "First 5 Innings", "Parlay", "Prop"];
-
-function calculatePayout(amount: number, odds: number): number {
-  if (odds > 0) {
-    return amount + (amount * odds) / 100;
-  } else {
-    return amount + (amount * 100) / Math.abs(odds);
-  }
-}
+import { BET_TYPES, calculateEstimatedPayout } from "@/lib/bets";
 
 export function AddBetForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    game: string;
+    betType: string;
+    pick: string;
+    odds: string;
+    amount: string;
+    notes: string;
+    gameDate: string;
+  }>({
     game: "",
     betType: BET_TYPES[0],
     pick: "",
@@ -60,8 +59,6 @@ export function AddBetForm() {
       return;
     }
 
-    const payout = calculatePayout(amount, odds);
-
     setLoading(true);
     try {
       const res = await fetch("/api/bets", {
@@ -73,7 +70,6 @@ export function AddBetForm() {
           pick: form.pick.trim(),
           odds,
           amount,
-          payout,
           notes: form.notes.trim() || null,
           gameDate: form.gameDate || null,
         }),
@@ -98,7 +94,7 @@ export function AddBetForm() {
   const amountNum = parseFloat(form.amount);
   const previewPayout =
     !isNaN(oddsNum) && !isNaN(amountNum) && amountNum > 0
-      ? calculatePayout(amountNum, oddsNum)
+      ? calculateEstimatedPayout(amountNum, oddsNum)
       : null;
 
   return (

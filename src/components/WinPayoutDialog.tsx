@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { calculateEstimatedPayout } from "@/lib/bets";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,8 @@ import {
 interface WinPayoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  estimatedPayout: number;
+  wagerAmount: number;
+  odds: number;
   onConfirm: (payout: number) => void;
   loading?: boolean;
 }
@@ -24,14 +26,18 @@ interface WinPayoutDialogProps {
 export function WinPayoutDialog({
   open,
   onOpenChange,
-  estimatedPayout,
+  wagerAmount,
+  odds,
   onConfirm,
   loading = false,
 }: WinPayoutDialogProps) {
   const [payout, setPayout] = useState("");
 
   function handleOpen(isOpen: boolean) {
-    if (isOpen) setPayout(estimatedPayout.toFixed(2));
+    if (isOpen) {
+      const computedEstimate = calculateEstimatedPayout(wagerAmount, odds);
+      setPayout(computedEstimate.toFixed(2));
+    }
     onOpenChange(isOpen);
   }
 
