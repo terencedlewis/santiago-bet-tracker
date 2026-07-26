@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, getAppPassword } from "@/lib/auth";
 
-function safeCompare(value: string, expected: string) {
-  const valueBuffer = Buffer.from(value);
-  const expectedBuffer = Buffer.from(expected);
+const COOKIE_MAX_AGE_DAYS = 30;
+const COOKIE_MAX_AGE_SECONDS = (() => {
+  const envValue = process.env.AUTH_COOKIE_MAX_AGE_SECONDS;
+  if (envValue == null) return COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
+  const parsed = Number(envValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
+})();
 
-  if (valueBuffer.length !== expectedBuffer.length) return false;
-  return timingSafeEqual(valueBuffer, expectedBuffer);
+function safeCompare(value: string, expected: string) {
+  const valueDigest = createHash("sha256").update(value).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(valueDigest, expectedDigest);
 }
 
 export async function POST(request: NextRequest) {
@@ -28,10 +34,13 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: COOKIE_MAX_AGE_SECONDS,
     });
     return response;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("APP_PASSWORD")) {
+      return NextResponse.json({ error: "Server password is not configured" }, { status: 500 });
+    }
     return NextResponse.json({ error: "Invalid login request" }, { status: 400 });
   }
 }

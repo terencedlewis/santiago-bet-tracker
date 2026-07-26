@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { BET_STATUSES } from "@/lib/bets";
+import { BET_STATUSES, type BetStatus } from "@/lib/bets";
 
 type Params = { params: Promise<{ id: string }> };
+
+function isBetStatus(status: unknown): status is BetStatus {
+  return typeof status === "string" && (BET_STATUSES as readonly string[]).includes(status);
+}
 
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
@@ -33,12 +37,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const body = await request.json();
     const { status, payout } = body;
+    const existingBet = await prisma.bet.findUnique({ where: { id: betId } });
+    if (!existingBet) {
+      return NextResponse.json({ error: "Bet not found" }, { status: 404 });
+    }
 
-    if (!BET_STATUSES.includes(status)) {
+    if (!isBetStatus(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
     if (status === "WIN" && (payout == null || Number(payout) <= 0)) {
       return NextResponse.json({ error: "Payout is required for WIN status" }, { status: 400 });
+    }
+    if (status === "WIN" && Number(payout) <= existingBet.amount) {
+      return NextResponse.json({ error: "Payout must be greater than the wager amount for a win" }, { status: 400 });
     }
 
     const bet = await prisma.bet.update({

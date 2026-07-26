@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { BET_TYPES, BET_STATUSES, type BetRecord } from "@/lib/bets";
+import { quoteCsvField } from "@/lib/csv";
 
 const ALL_LABEL = "All";
 
@@ -28,7 +29,6 @@ function exportToCsv(rows: BetRecord[]) {
     "notes",
   ];
 
-  const escapeCsv = (value: string) => `"${value.replaceAll('"', '""')}"`;
   const lines = rows.map((b) => {
     const date = (b.gameDate ?? b.createdAt).slice(0, 10);
     return [
@@ -42,7 +42,7 @@ function exportToCsv(rows: BetRecord[]) {
       b.status,
       b.payout != null ? b.payout.toFixed(2) : "",
       b.notes ?? "",
-    ].map(escapeCsv).join(",");
+    ].map(quoteCsvField).join(",");
   });
 
   const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8;" });

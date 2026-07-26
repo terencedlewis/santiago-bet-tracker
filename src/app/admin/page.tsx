@@ -185,7 +185,7 @@ export default async function AdminPage() {
                       <td className="py-2 pr-4 font-medium text-gray-900">{entry.type}</td>
                       <td className="py-2 pr-4">{entry.total}</td>
                       <td className="py-2 pr-4">
-                        {entry.wins}W / {entry.losses}L / {entry.pushes}P / {entry.pending} Pend
+                        {entry.wins}W / {entry.losses}L / {entry.pushes}P / {entry.pending} Pending
                       </td>
                       <td className="py-2 pr-4">{entry.winRate === "—" ? "—" : `${entry.winRate}%`}</td>
                       <td className={`py-2 pr-4 font-medium ${entry.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>

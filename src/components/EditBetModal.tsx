@@ -27,7 +27,15 @@ export function EditBetModal({ bet, open, onOpenChange }: EditBetModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    game: string;
+    betType: string;
+    pick: string;
+    odds: string;
+    amount: string;
+    notes: string;
+    gameDate: string;
+  }>({
     game: "",
     betType: BET_TYPES[0],
     pick: "",

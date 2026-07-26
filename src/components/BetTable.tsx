@@ -77,7 +77,10 @@ export function BetTable({ bets, showActions = false }: BetTableProps) {
         return (a.amount - b.amount) * multiplier;
       }
       if (sortKey === "payout") {
-        return ((a.payout ?? -1) - (b.payout ?? -1)) * multiplier;
+        if (a.payout == null && b.payout == null) return 0;
+        if (a.payout == null) return 1;
+        if (b.payout == null) return -1;
+        return (a.payout - b.payout) * multiplier;
       }
       return ((statusSortOrder[a.status] ?? 999) - (statusSortOrder[b.status] ?? 999)) * multiplier;
     });

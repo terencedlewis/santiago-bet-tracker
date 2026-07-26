@@ -25,6 +25,12 @@ export interface BetRecord {
   gameDate: string | null;
 }
 
+/**
+ * American odds payout calculator.
+ * Examples:
+ * - +150 on $100 returns $250 total.
+ * - -150 on $100 returns about $166.67 total.
+ */
 export function calculateEstimatedPayout(amount: number, odds: number): number {
   if (odds > 0) {
     return amount + (amount * odds) / 100;
