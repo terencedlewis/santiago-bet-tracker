@@ -83,3 +83,4 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 - Successful login sets an HTTP-only cookie session.
 - Unauthenticated API requests return `401`.
 - For local testing only, set `DISABLE_AUTH=true` to bypass login and API auth checks.
+- Never set `DISABLE_AUTH=true` in production or deployed environments.

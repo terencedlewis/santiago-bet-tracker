@@ -13,16 +13,32 @@ const COOKIE_MAX_AGE_SECONDS = (() => {
 function safeCompare(value: string, expected: string) {
   const valueBuffer = Buffer.from(value);
   const expectedBuffer = Buffer.from(expected);
-  if (valueBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-  return timingSafeEqual(valueBuffer, expectedBuffer);
+  const maxLength = Math.max(valueBuffer.length, expectedBuffer.length, 1);
+  const paddedValue = Buffer.alloc(maxLength);
+  const paddedExpected = Buffer.alloc(maxLength);
+  valueBuffer.copy(paddedValue);
+  expectedBuffer.copy(paddedExpected);
+
+  return (
+    timingSafeEqual(paddedValue, paddedExpected) &&
+    valueBuffer.length === expectedBuffer.length
+  );
 }
 
 export async function POST(request: NextRequest) {
   try {
     if (!isAuthEnabled()) {
-      return NextResponse.json({ success: true, authDisabled: true });
+      const response = NextResponse.json({ success: true, authDisabled: true });
+      response.cookies.set({
+        name: AUTH_COOKIE_NAME,
+        value: AUTH_COOKIE_VALUE,
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: COOKIE_MAX_AGE_SECONDS,
+      });
+      return response;
     }
 
     const body = await request.json();
