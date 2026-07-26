@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "crypto";
-import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, getAppPassword } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, getAppPassword, isAuthEnabled } from "@/lib/auth";
 
 const COOKIE_MAX_AGE_DAYS = 30;
 const COOKIE_MAX_AGE_SECONDS = (() => {
@@ -18,12 +18,14 @@ function safeCompare(value: string, expected: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const password = typeof body?.password === "string" ? body.password : "";
-    const expectedPassword = getAppPassword();
+    if (isAuthEnabled()) {
+      const body = await request.json();
+      const password = typeof body?.password === "string" ? body.password : "";
+      const expectedPassword = getAppPassword();
 
-    if (!safeCompare(password, expectedPassword)) {
-      return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+      if (!safeCompare(password, expectedPassword)) {
+        return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+      }
     }
 
     const response = NextResponse.json({ success: true });

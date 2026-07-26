@@ -39,6 +39,8 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 
    ```env
    APP_PASSWORD=your-password
+   # Optional: disable auth for local testing (`true` bypasses password/session checks)
+   # DISABLE_AUTH=false
    # Optional: session cookie lifetime (default 2592000 = 30 days)
    # AUTH_COOKIE_MAX_AGE_SECONDS=2592000
    # Optional: override DB location (defaults to ./dev.db)
@@ -80,3 +82,4 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 - Access is protected by a single password (`APP_PASSWORD`).
 - Successful login sets an HTTP-only cookie session.
 - Unauthenticated API requests return `401`.
+- For local testing only, set `DISABLE_AUTH=true` to bypass login and API auth checks.

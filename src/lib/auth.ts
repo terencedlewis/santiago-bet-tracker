@@ -1,6 +1,10 @@
 export const AUTH_COOKIE_NAME = "sbt_auth";
 export const AUTH_COOKIE_VALUE = "authenticated";
 
+export function isAuthEnabled() {
+  return process.env.DISABLE_AUTH !== "true";
+}
+
 export function getAppPassword() {
   const password = process.env.APP_PASSWORD?.trim();
   if (!password) {
