@@ -14,15 +14,14 @@ function safeCompare(value: string, expected: string) {
   const valueBuffer = Buffer.from(value);
   const expectedBuffer = Buffer.from(expected);
   const maxLength = Math.max(valueBuffer.length, expectedBuffer.length, 1);
-  const paddedValue = Buffer.alloc(maxLength);
-  const paddedExpected = Buffer.alloc(maxLength);
-  valueBuffer.copy(paddedValue);
-  expectedBuffer.copy(paddedExpected);
+  const paddedValue = Buffer.alloc(4 + maxLength);
+  const paddedExpected = Buffer.alloc(4 + maxLength);
+  paddedValue.writeUInt32BE(valueBuffer.length, 0);
+  paddedExpected.writeUInt32BE(expectedBuffer.length, 0);
+  valueBuffer.copy(paddedValue, 4);
+  expectedBuffer.copy(paddedExpected, 4);
 
-  return (
-    timingSafeEqual(paddedValue, paddedExpected) &&
-    valueBuffer.length === expectedBuffer.length
-  );
+  return timingSafeEqual(paddedValue, paddedExpected);
 }
 
 export async function POST(request: NextRequest) {
