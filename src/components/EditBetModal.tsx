@@ -14,32 +14,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-
-const BET_TYPES = ["Moneyline", "Run Line", "Over/Under", "First 5 Innings", "Parlay", "Prop"];
-
-function calculatePayout(amount: number, odds: number): number {
-  if (odds > 0) {
-    return amount + (amount * odds) / 100;
-  } else {
-    return amount + (amount * 100) / Math.abs(odds);
-  }
-}
-
-interface Bet {
-  id: number;
-  game: string;
-  betType: string;
-  pick: string;
-  odds: number;
-  amount: number;
-  status: string;
-  payout: number | null;
-  notes: string | null;
-  gameDate: string | null;
-}
+import { BET_TYPES, type BetRecord, calculateEstimatedPayout } from "@/lib/bets";
 
 interface EditBetModalProps {
-  bet: Bet | null;
+  bet: BetRecord | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -101,8 +79,6 @@ export function EditBetModal({ bet, open, onOpenChange }: EditBetModalProps) {
       return;
     }
 
-    const estimatedPayout = calculatePayout(amount, odds);
-
     setLoading(true);
     try {
       const res = await fetch(`/api/bets/${bet.id}`, {
@@ -114,7 +90,6 @@ export function EditBetModal({ bet, open, onOpenChange }: EditBetModalProps) {
           pick: form.pick.trim(),
           odds,
           amount,
-          payout: bet.status === "PENDING" ? estimatedPayout : bet.payout,
           notes: form.notes.trim() || null,
           gameDate: form.gameDate || null,
         }),
@@ -139,7 +114,7 @@ export function EditBetModal({ bet, open, onOpenChange }: EditBetModalProps) {
   const amountNum = parseFloat(form.amount);
   const previewPayout =
     !isNaN(oddsNum) && !isNaN(amountNum) && amountNum > 0
-      ? calculatePayout(amountNum, oddsNum)
+      ? calculateEstimatedPayout(amountNum, oddsNum)
       : null;
 
   return (

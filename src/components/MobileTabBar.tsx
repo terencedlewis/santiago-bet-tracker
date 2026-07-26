@@ -15,6 +15,7 @@ const tabs = [
 
 export function MobileTabBar() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden border-t border-gray-200 bg-white">

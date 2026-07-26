@@ -11,6 +11,7 @@ import {
   XCircle,
   MinusCircle,
 } from "lucide-react";
+import { BET_TYPES } from "@/lib/bets";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,31 @@ async function getAdminData() {
   const amountRiskedOnWins = winBets.reduce((sum, b) => sum + b.amount, 0);
   const netProfit = totalReturned - amountRiskedOnWins - totalLost;
 
+  const betTypeStats = BET_TYPES.map((type) => {
+    const typeBets = bets.filter((b) => b.betType === type);
+    const winsForType = typeBets.filter((b) => b.status === "WIN");
+    const lossesForType = typeBets.filter((b) => b.status === "LOSS");
+    const pushesForType = typeBets.filter((b) => b.status === "PUSH");
+    const pendingForType = typeBets.filter((b) => b.status === "PENDING");
+    const settledForType = winsForType.length + lossesForType.length;
+
+    const totalReturnedForType = winsForType.reduce((sum, b) => sum + (b.payout ?? 0), 0);
+    const amountRiskedOnWinsForType = winsForType.reduce((sum, b) => sum + b.amount, 0);
+    const totalLostForType = lossesForType.reduce((sum, b) => sum + b.amount, 0);
+    const netForType = totalReturnedForType - amountRiskedOnWinsForType - totalLostForType;
+
+    return {
+      type,
+      total: typeBets.length,
+      wins: winsForType.length,
+      losses: lossesForType.length,
+      pushes: pushesForType.length,
+      pending: pendingForType.length,
+      winRate: settledForType > 0 ? ((winsForType.length / settledForType) * 100).toFixed(1) : "—",
+      netProfit: netForType,
+    };
+  }).filter((entry) => entry.total > 0);
+
   return {
     bets,
     totalBets,
@@ -45,6 +71,7 @@ async function getAdminData() {
     winRate,
     totalWagered,
     netProfit,
+    betTypeStats,
   };
 }
 
@@ -124,7 +151,7 @@ export default async function AdminPage() {
         </div>
 
         {/* All bets table */}
-        <div>
+        <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">All Bets</h2>
           <AdminBetList
             bets={data.bets.map((b) => ({
@@ -133,6 +160,43 @@ export default async function AdminPage() {
               gameDate: b.gameDate ? b.gameDate.toISOString() : null,
             }))}
           />
+        </div>
+
+        {/* Bet type breakdown */}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-5">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Bet Type Breakdown</h2>
+          {data.betTypeStats.length === 0 ? (
+            <p className="text-sm text-gray-500">No bet-type data available yet.</p>
+          ) : (
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-gray-500">
+                    <th className="py-2 pr-4 font-medium">Type</th>
+                    <th className="py-2 pr-4 font-medium">Total</th>
+                    <th className="py-2 pr-4 font-medium">Record</th>
+                    <th className="py-2 pr-4 font-medium">Win Rate</th>
+                    <th className="py-2 pr-4 font-medium">Net P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.betTypeStats.map((entry) => (
+                    <tr key={entry.type} className="border-b last:border-0">
+                      <td className="py-2 pr-4 font-medium text-gray-900">{entry.type}</td>
+                      <td className="py-2 pr-4">{entry.total}</td>
+                      <td className="py-2 pr-4">
+                        {entry.wins}W / {entry.losses}L / {entry.pushes}P / {entry.pending} Pend
+                      </td>
+                      <td className="py-2 pr-4">{entry.winRate === "—" ? "—" : `${entry.winRate}%`}</td>
+                      <td className={`py-2 pr-4 font-medium ${entry.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {entry.netProfit >= 0 ? "+" : "-"}${Math.abs(entry.netProfit).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

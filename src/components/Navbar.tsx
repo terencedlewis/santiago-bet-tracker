@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BarChart3, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { LogoutButton } from "@/components/LogoutButton";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -17,6 +18,7 @@ const navLinks = [
 export function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const showLogout = pathname !== "/login";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
@@ -40,6 +42,7 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
+          {showLogout && <LogoutButton />}
         </nav>
 
         {/* Mobile menu button */}
@@ -68,6 +71,7 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
+          {showLogout && <LogoutButton mobile />}
         </nav>
       )}
     </header>

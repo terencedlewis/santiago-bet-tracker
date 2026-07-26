@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Santiago Bet Tracker
 
-## Getting Started
+A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Add and edit bets with game details, odds, wager amount, notes, and optional game date
+- Track status transitions: `PENDING`, `WIN`, `LOSS`, `PUSH`
+- Set actual payout only when settling a bet as `WIN`
+- Dashboard metrics (win rate, net profit, streak, recent bets)
+- Admin analytics, filtering, CSV export, and bet-type performance breakdown
+- Pending-bet workflow with quick result actions
+- Sortable bet tables and mobile-friendly card view
+- Simple password protection for all pages and API routes
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Next.js 15 + React 19 + TypeScript
+- Prisma 7 + `@prisma/adapter-better-sqlite3`
+- SQLite (`dev.db`)
+- Tailwind CSS 4
+- Recharts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup
 
-## Learn More
+1. Install dependencies:
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. Configure environment variables:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## Deploy on Vercel
+3. Set at least:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```env
+   APP_PASSWORD=your-password
+   # Optional: override DB location (defaults to ./dev.db)
+   # SQLITE_DB_PATH=dev.db
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. Generate Prisma client:
+
+   ```bash
+   npx prisma generate
+   ```
+
+5. Run migrations (creates local DB file if missing):
+
+   ```bash
+   npx prisma migrate dev
+   ```
+
+6. Start development server:
+
+   ```bash
+   npm run dev
+   ```
+
+## Scripts
+
+- `npm run dev` – Start local dev server
+- `npm run build` – Production build
+- `npm run start` – Run production build
+- `npm run lint` – Run ESLint
+
+## Notes on Data Files
+
+- Local SQLite files (`dev.db`, `dev.db-journal`) are gitignored.
+- Seed/populate data locally using your own workflow (manual entry or SQL/Prisma scripts).
+
+## Authentication
+
+- Access is protected by a single password (`APP_PASSWORD`).
+- Successful login sets an HTTP-only cookie session.
+- Unauthenticated API requests return `401`.

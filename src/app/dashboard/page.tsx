@@ -45,12 +45,13 @@ async function getDashboardData() {
   const totalReturned = allBets
     .filter((b) => b.status === "WIN" && b.payout != null)
     .reduce((sum, b) => sum + (b.payout ?? 0), 0);
+  const amountRiskedOnWins = allBets
+    .filter((b) => b.status === "WIN")
+    .reduce((sum, b) => sum + b.amount, 0);
   const totalLost = allBets
     .filter((b) => b.status === "LOSS")
     .reduce((sum, b) => sum + b.amount, 0);
-  const netProfit = totalReturned - totalLost - allBets
-    .filter((b) => b.status === "WIN")
-    .reduce((sum, b) => sum + b.amount, 0);
+  const netProfit = totalReturned - amountRiskedOnWins - totalLost;
 
   const streak = computeStreak(settledBets);
 

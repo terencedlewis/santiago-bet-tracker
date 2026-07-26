@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/Sidebar";
-import { BetTable } from "@/components/BetTable";
+import { PendingBetList } from "@/components/PendingBetList";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -32,16 +32,13 @@ export default async function PendingBetsPage() {
           </Link>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <BetTable
-            bets={bets.map((b) => ({
-              ...b,
-              createdAt: b.createdAt.toISOString(),
-              gameDate: b.gameDate ? b.gameDate.toISOString() : null,
-            }))}
-            showActions
-          />
-        </div>
+        <PendingBetList
+          bets={bets.map((b) => ({
+            ...b,
+            createdAt: b.createdAt.toISOString(),
+            gameDate: b.gameDate ? b.gameDate.toISOString() : null,
+          }))}
+        />
       </div>
     </div>
   );
