@@ -1,6 +1,10 @@
 export const AUTH_COOKIE_NAME = "sbt_auth";
 export const AUTH_COOKIE_VALUE = "authenticated";
 
+/**
+ * Returns whether authentication checks should run.
+ * Set DISABLE_AUTH=true only for temporary local testing.
+ */
 export function isAuthEnabled() {
   return process.env.DISABLE_AUTH !== "true";
 }
