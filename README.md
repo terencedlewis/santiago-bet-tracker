@@ -13,6 +13,44 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 - Sortable bet tables and mobile-friendly card view
 - Simple password protection for all pages and API routes
 
+## POC Go-Live Notes
+
+This release is the current proof of concept shipped as-is. The following items are intentionally deferred until the POC is validated in production:
+
+- Auto MLB matchup discovery in bet entry
+- External odds autofill via a provider adapter
+- Internal API endpoints for matchup and odds lookup
+- Short-lived caching and rate-limit protection for provider calls
+- Optional provider metadata on bets such as event ID, bookmaker, market or line, and fetched-at timestamp
+- Add-bet UX improvements such as a matchup picker, refresh odds action, and manual override controls
+- Graceful fallback to manual entry when a provider is unavailable
+- Observability for provider latency and error tracking
+
+## Out of Scope for POC
+
+- Auto-grading bet outcomes
+- Live score polling
+- Background sync jobs or cron refresh
+- Multi-sport support
+
+## POC Exit Gate
+
+- Manual workflow stability is verified
+- Auth and API behavior is stable under test
+- Dashboard, admin, pending, and export flows show no regressions
+- Sportsbook strategy is decided for the next phase
+- Provider budget and rate-limit envelope are approved
+
+## Release Checklist
+
+- Cut a release branch from the POC-approved commit
+- Keep `DISABLE_AUTH` unset or `false` in production
+- Set a strong `APP_PASSWORD`
+- Configure `SQLITE_DB_PATH` for the production runtime location
+- Run `npx prisma generate` and `npx prisma migrate dev` during deployment setup
+- Verify login, add bet, settle bet, dashboard, admin, pending, and CSV export flows before promotion
+- Keep the previous deployment available for rollback
+
 ## Tech Stack
 
 - Next.js 15 + React 19 + TypeScript
@@ -22,6 +60,10 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 - Recharts
 
 ## Setup
+
+Prerequisites:
+
+- Node.js 20.19 or newer
 
 1. Install dependencies:
 
