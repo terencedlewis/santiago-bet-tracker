@@ -3,23 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, PlusCircle, Clock, Settings, Home } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { getSessionRoleFromCookie } from "@/lib/auth-client";
 
 const tabs = [
   { href: "/", label: "Home", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/add-bet", label: "Add Bet", icon: PlusCircle },
   { href: "/pending", label: "Pending", icon: Clock },
-  { href: "/admin", label: "Admin", icon: Settings },
+  { href: "/admin", label: "Admin", icon: Settings, adminOnly: true },
 ];
 
 export function MobileTabBar() {
   const pathname = usePathname();
+  const [role, setRole] = useState<"user" | "admin" | null>(null);
+
+  useEffect(() => {
+    setRole(getSessionRoleFromCookie());
+  }, []);
+
   if (pathname === "/login") return null;
+
+  const visibleTabs = tabs.filter((tab) => !tab.adminOnly || role === "admin");
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden border-t border-gray-200 bg-white">
-      {tabs.map(({ href, label, icon: Icon }) => {
+      {visibleTabs.map(({ href, label, icon: Icon }) => {
         const active = pathname === href;
         return (
           <Link

@@ -3,22 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { LogoutButton } from "@/components/LogoutButton";
+import { getSessionRoleFromCookie } from "@/lib/auth-client";
 
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/add-bet", label: "Add Bet" },
   { href: "/pending", label: "Pending Bets" },
-  { href: "/admin", label: "Admin" },
+  { href: "/admin", label: "Admin", adminOnly: true },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [role, setRole] = useState<"user" | "admin" | null>(null);
   const showLogout = pathname !== "/login";
+
+  useEffect(() => {
+    setRole(getSessionRoleFromCookie());
+  }, []);
+
+  const visibleLinks = navLinks.filter((link) => !link.adminOnly || role === "admin");
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white shadow-sm">
@@ -30,7 +38,7 @@ export function Navbar() {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6">
-          {navLinks.map((link) => (
+          {visibleLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -58,7 +66,7 @@ export function Navbar() {
       {/* Mobile nav */}
       {menuOpen && (
         <nav className="md:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-3">
-          {navLinks.map((link) => (
+          {visibleLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
