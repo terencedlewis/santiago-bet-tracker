@@ -9,23 +9,32 @@ import {
   Settings,
   Home,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { getSessionRoleFromCookie } from "@/lib/auth-client";
 
 const sidebarLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/add-bet", label: "Add Bet", icon: PlusCircle },
   { href: "/pending", label: "Pending Bets", icon: Clock },
-  { href: "/admin", label: "Admin", icon: Settings },
+  { href: "/admin", label: "Admin", icon: Settings, adminOnly: true },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [role, setRole] = useState<"user" | "admin" | null>(null);
+
+  useEffect(() => {
+    setRole(getSessionRoleFromCookie());
+  }, []);
+
+  const visibleLinks = sidebarLinks.filter((link) => !link.adminOnly || role === "admin");
 
   return (
     <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-gray-200 bg-white py-6">
       <nav className="flex flex-col gap-1 px-3">
-        {sidebarLinks.map(({ href, label, icon: Icon }) => (
+        {visibleLinks.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}

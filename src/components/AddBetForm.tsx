@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,14 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BET_TYPES, calculateEstimatedPayout } from "@/lib/bets";
+import { buildOddsGameLabel, type OddsSuggestion } from "@/lib/mlb-odds";
 
 export function AddBetForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [oddsLoading, setOddsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oddsSuggestions, setOddsSuggestions] = useState<OddsSuggestion[]>([]);
 
   const [form, setForm] = useState<{
     game: string;
@@ -81,7 +84,7 @@ export function AddBetForm() {
         return;
       }
 
-      router.push("/pending");
+      router.push("/pending?success=created");
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -97,6 +100,51 @@ export function AddBetForm() {
       ? calculateEstimatedPayout(amountNum, oddsNum)
       : null;
 
+  useEffect(() => {
+    async function loadOdds() {
+      setOddsLoading(true);
+      try {
+        const res = await fetch("/api/mlb/odds");
+        if (!res.ok) return;
+        const data = (await res.json()) as Array<{
+          away_team: string;
+          home_team: string;
+          commence_time: string;
+          bookmakers?: Array<{
+            markets?: Array<{
+              key?: string;
+              outcomes?: Array<{ name?: string; price?: number }>;
+            }>;
+          }>;
+        }>;
+
+        const suggestions = (data ?? []).flatMap((game) => {
+          const gameLabel = buildOddsGameLabel(game);
+          const market = game.bookmakers
+            ?.flatMap((bookmaker) => bookmaker.markets ?? [])
+            .find((item) => item.key === "h2h");
+
+          return (market?.outcomes ?? [])
+            .filter((outcome): outcome is { name: string; price: number } => !!outcome.name && outcome.price != null)
+            .map((outcome) => ({
+              game: gameLabel,
+              pick: outcome.name,
+              odds: Number(outcome.price),
+              commenceTime: game.commence_time,
+            }));
+        });
+
+        setOddsSuggestions(suggestions.slice(0, 12));
+      } catch {
+        // Ignore odds fetch failures for local POC fallback.
+      } finally {
+        setOddsLoading(false);
+      }
+    }
+
+    loadOdds();
+  }, []);
+
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
@@ -107,6 +155,36 @@ export function AddBetForm() {
           {error && (
             <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
               {error}
+            </div>
+          )}
+
+          {oddsSuggestions.length > 0 && (
+            <div className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-sm font-medium text-blue-800">MLB live odds suggestions</Label>
+                {oddsLoading && <span className="text-xs text-blue-700">Loading…</span>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {oddsSuggestions.map((suggestion) => (
+                  <Button
+                    key={`${suggestion.game}-${suggestion.pick}-${suggestion.odds}`}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      setForm((current) => ({
+                        ...current,
+                        game: suggestion.game,
+                        pick: suggestion.pick,
+                        odds: String(suggestion.odds),
+                      }));
+                    }}
+                  >
+                    {suggestion.game} • {suggestion.pick} {suggestion.odds}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 

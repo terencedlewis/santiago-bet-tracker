@@ -38,7 +38,10 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 3. Set at least:
 
    ```env
-   APP_PASSWORD=your-password
+   APP_PASSWORD=your-user-password
+   ADMIN_PASSWORD=your-admin-password
+   # Optional: strong signing secret for signed sessions (defaults to APP_PASSWORD if omitted)
+   # AUTH_SESSION_SECRET=replace-with-a-long-random-string
    # Optional: disable auth for local testing (`true` bypasses password/session checks)
    # DISABLE_AUTH=true
    # Optional: session cookie lifetime (default 2592000 = 30 days)

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
-import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE, getAppPassword, isAuthEnabled } from "@/lib/auth";
+import {
+  AUTH_COOKIE_NAME,
+  AUTH_COOKIE_VALUE,
+  buildSessionToken,
+  getPasswordForRole,
+  isAuthEnabled,
+  type AuthRole,
+} from "@/lib/auth";
 
 const COOKIE_MAX_AGE_DAYS = 30;
 const COOKIE_MAX_AGE_SECONDS = (() => {
@@ -41,17 +48,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    const rawRole = typeof body?.role === "string" ? body.role : "user";
+    const role: AuthRole = rawRole === "admin" ? "admin" : "user";
     const password = typeof body?.password === "string" ? body.password : "";
-    const expectedPassword = getAppPassword();
+    const expectedPassword = getPasswordForRole(role);
 
     if (!safeCompare(password, expectedPassword)) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
 
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true, role });
     response.cookies.set({
       name: AUTH_COOKIE_NAME,
-      value: AUTH_COOKIE_VALUE,
+      value: buildSessionToken(role),
       path: "/",
       httpOnly: true,
       sameSite: "lax",
@@ -60,7 +69,10 @@ export async function POST(request: NextRequest) {
     });
     return response;
   } catch (error) {
-    if (error instanceof Error && error.message.includes("APP_PASSWORD")) {
+    if (
+      error instanceof Error &&
+      (error.message.includes("APP_PASSWORD") || error.message.includes("ADMIN_PASSWORD"))
+    ) {
       return NextResponse.json({ error: "Server password is not configured" }, { status: 500 });
     }
     return NextResponse.json({ error: "Invalid login request" }, { status: 400 });
