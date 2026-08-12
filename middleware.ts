@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME, getSessionSecret, isAuthEnabled, verifySessionToken } from "@/lib/auth";
 
-const PUBLIC_ROUTES = new Set(["/login", "/api/auth/login", "/api/mlb/odds"]);
+const PUBLIC_ROUTES = new Set(["/login", "/api/auth/login"]);
 const ADMIN_ROUTES = ["/admin"];
 
 export function middleware(request: NextRequest) {
