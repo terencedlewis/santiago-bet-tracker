@@ -35,7 +35,11 @@ export function getPasswordForRole(role: AuthRole) {
 
 export function getSessionSecret() {
   const secret = process.env.AUTH_SESSION_SECRET?.trim();
-  return secret && secret.length > 0 ? secret : getAppPassword();
+  if (secret && secret.length > 0) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SESSION_SECRET environment variable is not configured. Please set it in .env.local");
+  }
+  return getAppPassword();
 }
 
 export function buildSessionToken(role: AuthRole, secret = getSessionSecret()) {
