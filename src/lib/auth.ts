@@ -54,7 +54,12 @@ export function verifySessionToken(token: string | undefined, secret = getSessio
     return null;
   }
 
-  const normalizedRole = decodeURIComponent(encodedRole);
+  let normalizedRole: string;
+  try {
+    normalizedRole = decodeURIComponent(encodedRole);
+  } catch {
+    return null;
+  }
   if (normalizedRole !== "user" && normalizedRole !== "admin") {
     return null;
   }
