@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       const response = NextResponse.json({ success: true, authDisabled: true });
       response.cookies.set({
         name: AUTH_COOKIE_NAME,
-        value: buildSessionToken("user"),
+        value: await buildSessionToken("user"),
         path: "/",
         httpOnly: true,
         sameSite: "lax",
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({ success: true, role });
     response.cookies.set({
       name: AUTH_COOKIE_NAME,
-      value: buildSessionToken(role),
+      value: await buildSessionToken(role),
       path: "/",
       httpOnly: true,
       sameSite: "lax",
