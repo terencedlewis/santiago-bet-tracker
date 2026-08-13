@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 export const AUTH_COOKIE_NAME = "sbt_auth";
-export const AUTH_COOKIE_VALUE = "authenticated";
 export type AuthRole = "user" | "admin";
 const AUTH_ENABLED = process.env.DISABLE_AUTH !== "true";
 

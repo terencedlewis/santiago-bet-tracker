@@ -8,6 +8,27 @@ function isBetStatus(status: unknown): status is BetStatus {
   return typeof status === "string" && (BET_STATUSES as readonly string[]).includes(status);
 }
 
+function parsePositiveNumber(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function parseOptionalDate(value: unknown): Date | null {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
 export async function GET(_request: NextRequest, { params }: Params) {
   try {
     const { id } = await params;
@@ -45,18 +66,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!isBetStatus(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
-    if (status === "WIN" && (payout == null || Number(payout) <= 0)) {
-      return NextResponse.json({ error: "Payout is required for WIN status" }, { status: 400 });
-    }
-    if (status === "WIN" && Number(payout) <= existingBet.amount) {
-      return NextResponse.json({ error: "Payout must be greater than the wager amount for a win" }, { status: 400 });
+
+    let normalizedPayout: number | null = null;
+    if (status === "WIN") {
+      normalizedPayout = parsePositiveNumber(payout);
+      if (normalizedPayout === null) {
+        return NextResponse.json({ error: "Payout is required for WIN status" }, { status: 400 });
+      }
+      if (normalizedPayout <= existingBet.amount) {
+        return NextResponse.json({ error: "Payout must be greater than the wager amount for a win" }, { status: 400 });
+      }
     }
 
     const bet = await prisma.bet.update({
       where: { id: betId },
       data: {
         status,
-        payout: status === "WIN" ? Number(payout) : null,
+        payout: normalizedPayout,
       },
     });
 
@@ -78,8 +104,29 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const body = await request.json();
     const { game, betType, pick, odds, amount, notes, gameDate } = body;
 
-    if (!game || !betType || !pick || odds === undefined || amount === undefined) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (typeof game !== "string" || !game.trim()) {
+      return NextResponse.json({ error: "Game is required" }, { status: 400 });
+    }
+    if (typeof betType !== "string" || !betType.trim()) {
+      return NextResponse.json({ error: "Bet type is required" }, { status: 400 });
+    }
+    if (typeof pick !== "string" || !pick.trim()) {
+      return NextResponse.json({ error: "Pick is required" }, { status: 400 });
+    }
+
+    const parsedOdds = Number(odds);
+    if (!Number.isFinite(parsedOdds) || !Number.isInteger(parsedOdds) || parsedOdds === 0) {
+      return NextResponse.json({ error: "Odds must be a non-zero integer" }, { status: 400 });
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
+    }
+
+    const parsedGameDate = parseOptionalDate(gameDate);
+    if (gameDate !== undefined && gameDate !== null && gameDate !== "" && parsedGameDate === null) {
+      return NextResponse.json({ error: "Game date is invalid" }, { status: 400 });
     }
 
     const existingBet = await prisma.bet.findUnique({ where: { id: betId } });
@@ -90,14 +137,14 @@ export async function PUT(request: NextRequest, { params }: Params) {
     const bet = await prisma.bet.update({
       where: { id: betId },
       data: {
-        game: String(game),
-        betType: String(betType),
-        pick: String(pick),
-        odds: Number(odds),
-        amount: Number(amount),
+        game: game.trim(),
+        betType: betType.trim(),
+        pick: pick.trim(),
+        odds: parsedOdds,
+        amount: parsedAmount,
         payout: existingBet.status === "WIN" ? existingBet.payout : null,
-        notes: notes ? String(notes) : null,
-        gameDate: gameDate ? new Date(gameDate) : null,
+        notes: notes != null && notes !== "" ? String(notes) : null,
+        gameDate: parsedGameDate,
       },
     });
 
