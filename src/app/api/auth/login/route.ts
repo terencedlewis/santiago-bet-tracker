@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import {
   AUTH_COOKIE_NAME,
+  AUTH_COOKIE_VALUE,
   buildSessionToken,
   getPasswordForRole,
   isAuthEnabled,
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       const response = NextResponse.json({ success: true, authDisabled: true });
       response.cookies.set({
         name: AUTH_COOKIE_NAME,
-        value: buildSessionToken("user"),
+        value: AUTH_COOKIE_VALUE,
         path: "/",
         httpOnly: true,
         sameSite: "lax",
