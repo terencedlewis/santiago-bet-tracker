@@ -50,8 +50,8 @@ export function EditBetModal({ bet, open, onOpenChange }: EditBetModalProps) {
       setForm({
         game: bet.game,
         betType: bet.betType,
-        pick: bet.pick,
-        odds: String(bet.odds),
+        pick: bet.pick ?? "",
+        odds: bet.odds != null ? String(bet.odds) : "",
         amount: String(bet.amount),
         notes: bet.notes ?? "",
         gameDate: bet.gameDate ? bet.gameDate.slice(0, 10) : "",

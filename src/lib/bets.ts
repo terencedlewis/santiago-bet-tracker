@@ -22,8 +22,8 @@ export interface BetRecord {
   id: number;
   game: string;
   betType: string;
-  pick: string;
-  odds: number;
+  pick: string | null;
+  odds: number | null;
   amount: number;
   status: string;
   payout: number | null;
@@ -68,7 +68,7 @@ export function normalizeParlayLegs(value: unknown): BetLeg[] {
   if (!Array.isArray(value)) return [];
 
   return value
-    .map((entry) => {
+    .map((entry): BetLeg | null => {
       if (!entry || typeof entry !== "object") return null;
       const candidate = entry as Record<string, unknown>;
       const selection = typeof candidate.selection === "string" ? candidate.selection.trim() : "";

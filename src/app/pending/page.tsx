@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { PendingBetList } from "@/components/PendingBetList";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { normalizeParlayLegs } from "@/lib/bets";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function PendingBetsPage({ searchParams }: PendingBetsPageP
             ...b,
             createdAt: b.createdAt.toISOString(),
             gameDate: b.gameDate ? b.gameDate.toISOString() : null,
+            legs: normalizeParlayLegs(b.legs),
           }))}
         />
       </div>

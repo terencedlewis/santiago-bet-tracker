@@ -183,6 +183,7 @@ export function AddBetForm() {
 
   const oddsNum = parseInt(form.odds, 10);
   const amountNum = parseFloat(form.amount);
+  const isParlay = form.betType === "Parlay";
   const parlayOdds = form.legs
     .map((leg) => parseInt(leg.odds, 10))
     .filter((odds) => !Number.isNaN(odds));
@@ -193,8 +194,6 @@ export function AddBetForm() {
     : !isNaN(oddsNum) && !isNaN(amountNum) && amountNum > 0
       ? calculateEstimatedPayout(amountNum, oddsNum)
       : null;
-
-  const isParlay = form.betType === "Parlay";
 
   useEffect(() => {
     async function loadOdds() {
