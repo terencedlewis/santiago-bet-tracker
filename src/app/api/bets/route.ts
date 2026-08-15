@@ -21,9 +21,56 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { game, betType, pick, odds, amount, notes, gameDate } = body;
+    const { game, betType, pick, odds, amount, notes, gameDate, legs } = body;
 
-    if (!game || !betType || !pick || odds === undefined || amount === undefined) {
+    if (!game || !betType || amount === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const normalizedAmount = Number(amount);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      return NextResponse.json({ error: "Wager amount must be a positive number" }, { status: 400 });
+    }
+
+    const isParlay = String(betType) === "Parlay";
+
+    if (isParlay) {
+      const parlayLegs = Array.isArray(legs) ? legs : [];
+      if (parlayLegs.length < 2) {
+        return NextResponse.json({ error: "Parlays require at least two legs" }, { status: 400 });
+      }
+
+      const hasValidLegs = parlayLegs.every((leg) => {
+        return leg && typeof leg === "object" && typeof leg.selection === "string" && leg.selection.trim() && Number.isFinite(Number(leg.odds));
+      });
+
+      if (!hasValidLegs) {
+        return NextResponse.json({ error: "Each parlay leg must include a selection and odds" }, { status: 400 });
+      }
+
+      const bet = await prisma.bet.create({
+        data: {
+          game: String(game),
+          betType: "Parlay",
+          pick: null,
+          odds: null,
+          amount: normalizedAmount,
+          payout: null,
+          notes: notes ? String(notes) : null,
+          gameDate: gameDate ? new Date(gameDate) : null,
+          status: "PENDING",
+          legs: parlayLegs.map((leg) => ({
+            selection: String(leg.selection).trim(),
+            odds: Number(leg.odds),
+            status: "PENDING",
+          })),
+        },
+      });
+
+      return NextResponse.json(bet, { status: 201 });
+    }
+
+    if (!pick || odds === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -33,7 +80,7 @@ export async function POST(request: NextRequest) {
         betType: String(betType),
         pick: String(pick),
         odds: Number(odds),
-        amount: Number(amount),
+        amount: normalizedAmount,
         payout: null,
         notes: notes ? String(notes) : null,
         gameDate: gameDate ? new Date(gameDate) : null,

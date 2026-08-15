@@ -76,15 +76,62 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     const body = await request.json();
-    const { game, betType, pick, odds, amount, notes, gameDate } = body;
+    const { game, betType, pick, odds, amount, notes, gameDate, legs } = body;
 
-    if (!game || !betType || !pick || odds === undefined || amount === undefined) {
+    if (!game || !betType || amount === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const normalizedAmount = Number(amount);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      return NextResponse.json({ error: "Wager amount must be a positive number" }, { status: 400 });
     }
 
     const existingBet = await prisma.bet.findUnique({ where: { id: betId } });
     if (!existingBet) {
       return NextResponse.json({ error: "Bet not found" }, { status: 404 });
+    }
+
+    const isParlay = String(betType) === "Parlay";
+
+    if (isParlay) {
+      const parlayLegs = Array.isArray(legs) ? legs : [];
+      if (parlayLegs.length < 2) {
+        return NextResponse.json({ error: "Parlays require at least two legs" }, { status: 400 });
+      }
+
+      const hasValidLegs = parlayLegs.every((leg) => {
+        return leg && typeof leg === "object" && typeof leg.selection === "string" && leg.selection.trim() && Number.isFinite(Number(leg.odds));
+      });
+
+      if (!hasValidLegs) {
+        return NextResponse.json({ error: "Each parlay leg must include a selection and odds" }, { status: 400 });
+      }
+
+      const bet = await prisma.bet.update({
+        where: { id: betId },
+        data: {
+          game: String(game),
+          betType: "Parlay",
+          pick: null,
+          odds: null,
+          amount: normalizedAmount,
+          payout: existingBet.status === "WIN" ? existingBet.payout : null,
+          notes: notes ? String(notes) : null,
+          gameDate: gameDate ? new Date(gameDate) : null,
+          legs: parlayLegs.map((leg) => ({
+            selection: String(leg.selection).trim(),
+            odds: Number(leg.odds),
+            status: "PENDING",
+          })),
+        },
+      });
+
+      return NextResponse.json(bet);
+    }
+
+    if (!pick || odds === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const bet = await prisma.bet.update({
@@ -94,10 +141,11 @@ export async function PUT(request: NextRequest, { params }: Params) {
         betType: String(betType),
         pick: String(pick),
         odds: Number(odds),
-        amount: Number(amount),
+        amount: normalizedAmount,
         payout: existingBet.status === "WIN" ? existingBet.payout : null,
         notes: notes ? String(notes) : null,
         gameDate: gameDate ? new Date(gameDate) : null,
+        legs: null,
       },
     });
 
