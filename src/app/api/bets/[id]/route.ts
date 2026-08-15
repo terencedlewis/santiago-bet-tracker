@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { BET_STATUSES, type BetStatus } from "@/lib/bets";
 
 type Params = { params: Promise<{ id: string }> };
@@ -145,7 +146,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
         payout: existingBet.status === "WIN" ? existingBet.payout : null,
         notes: notes ? String(notes) : null,
         gameDate: gameDate ? new Date(gameDate) : null,
-        legs: null,
+        legs: Prisma.JsonNull,
       },
     });
 

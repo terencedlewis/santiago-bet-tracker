@@ -26,7 +26,8 @@ interface BetTableProps {
 type SortKey = "date" | "game" | "betType" | "odds" | "amount" | "payout" | "status";
 type SortDirection = "asc" | "desc";
 
-function formatOdds(odds: number): string {
+function formatOdds(odds: number | null): string {
+  if (odds == null) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
@@ -82,7 +83,7 @@ export function BetTable({ bets, showActions = false }: BetTableProps) {
         return a.betType.localeCompare(b.betType) * multiplier;
       }
       if (sortKey === "odds") {
-        return (a.odds - b.odds) * multiplier;
+        return ((a.odds ?? 0) - (b.odds ?? 0)) * multiplier;
       }
       if (sortKey === "amount") {
         return (a.amount - b.amount) * multiplier;

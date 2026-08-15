@@ -6,6 +6,7 @@ import { ProfitChart } from "@/components/ProfitChart";
 import { BarChart3, DollarSign, TrendingUp, Clock, Flame } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { normalizeParlayLegs } from "@/lib/bets";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,7 @@ export default async function DashboardPage() {
               ...b,
               createdAt: b.createdAt.toISOString(),
               gameDate: b.gameDate ? b.gameDate.toISOString() : null,
+              legs: normalizeParlayLegs(b.legs),
             }))} />
           </div>
         </div>
