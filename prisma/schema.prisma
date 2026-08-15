@@ -16,11 +16,12 @@ model Bet {
   updatedAt DateTime @updatedAt
   game      String
   betType   String
-  pick      String
-  odds      Int
+  pick      String?
+  odds      Int?
   amount    Float
   status    String   @default("PENDING")
   payout    Float?
   notes     String?
   gameDate  DateTime?
+  legs      Json?
 }

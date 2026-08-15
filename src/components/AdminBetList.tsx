@@ -83,9 +83,15 @@ export function AdminBetList({ bets }: AdminBetListProps) {
 
       if (search.trim()) {
         const q = search.toLowerCase();
+        const pickText = (b.pick ?? "").toLowerCase();
+        const parlayText = Array.isArray(b.legs)
+          ? b.legs.map((leg) => `${leg.selection} ${leg.odds}`).join(" ").toLowerCase()
+          : "";
+
         if (
           !b.game.toLowerCase().includes(q) &&
-          !b.pick.toLowerCase().includes(q) &&
+          !pickText.includes(q) &&
+          !parlayText.includes(q) &&
           !(b.notes ?? "").toLowerCase().includes(q)
         ) {
           return false;
