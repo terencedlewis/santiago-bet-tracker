@@ -46,7 +46,7 @@ This release is the current proof of concept shipped as-is. The following items 
 - Cut a release branch from the POC-approved commit
 - Keep `DISABLE_AUTH` unset or `false` in production
 - Set a strong `APP_PASSWORD`
-- Configure `SQLITE_DB_PATH` for the production runtime location
+- Configure `DATABASE_URL` for the production runtime location
 - Run `npx prisma generate` and `npx prisma migrate dev` during deployment setup
 - Verify login, add bet, settle bet, dashboard, admin, pending, and CSV export flows before promotion
 - Keep the previous deployment available for rollback

@@ -6,12 +6,18 @@ import { defineConfig } from "prisma/config";
 config({ path: ".env.local" });
 config();
 
+const databaseUrl = process.env["DATABASE_URL"]?.trim();
+
+if (!databaseUrl && process.env.NODE_ENV === "production") {
+  throw new Error("DATABASE_URL environment variable is required in production");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"] ?? "file:./dev.db",
+    url: databaseUrl ?? "file:./dev.db",
   },
 });
