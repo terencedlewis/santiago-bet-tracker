@@ -11,6 +11,12 @@ export const BET_STATUSES = ["PENDING", "WIN", "LOSS", "PUSH"] as const;
 
 export type BetStatus = (typeof BET_STATUSES)[number];
 
+export interface ParlayLeg {
+  game: string;
+  pick: string;
+  odds: number;
+}
+
 export interface BetRecord {
   id: number;
   game: string;
@@ -36,4 +42,13 @@ export function calculateEstimatedPayout(amount: number, odds: number): number {
     return amount + (amount * odds) / 100;
   }
   return amount + (amount * 100) / Math.abs(odds);
+}
+
+export function calculateCombinedAmericanOdds(legs: ParlayLeg[]): number {
+  const combinedDecimalOdds = legs.reduce(
+    (total, leg) => total * (leg.odds > 0 ? 1 + leg.odds / 100 : 1 + 100 / Math.abs(leg.odds)),
+    1
+  );
+
+  return Math.round((combinedDecimalOdds - 1) * 100);
 }

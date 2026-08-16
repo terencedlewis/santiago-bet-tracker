@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BET_STATUSES, type BetStatus } from "@/lib/bets";
+import { isAdminRequest } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -50,6 +51,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const { id } = await params;
     const betId = Number(id);
     if (!Number.isInteger(betId)) {
@@ -95,6 +100,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const { id } = await params;
     const betId = Number(id);
     if (!Number.isInteger(betId)) {
@@ -155,8 +164,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const { id } = await params;
     const betId = Number(id);
     if (!Number.isInteger(betId)) {

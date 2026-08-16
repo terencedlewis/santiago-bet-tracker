@@ -1,5 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAdminRequest } from "@/lib/auth";
+import { calculateCombinedAmericanOdds, type ParlayLeg } from "@/lib/bets";
+import { Prisma } from "@/generated/prisma/client";
+
+function parseParlayLegs(value: unknown): ParlayLeg[] | null {
+  if (!Array.isArray(value) || value.length < 2) return null;
+
+  const legs = value.filter((leg): leg is Record<string, unknown> => typeof leg === "object" && leg !== null);
+  if (legs.length !== value.length) return null;
+
+  const parsed = legs.map((leg) => ({
+    game: typeof leg.game === "string" ? leg.game.trim() : "",
+    pick: typeof leg.pick === "string" ? leg.pick.trim() : "",
+    odds: Number(leg.odds),
+  }));
+
+  const hasUniqueGames = new Set(parsed.map((leg) => leg.game)).size === parsed.length;
+  return hasUniqueGames && parsed.every((leg) => leg.game && leg.pick && Number.isInteger(leg.odds) && leg.odds !== 0)
+    ? parsed
+    : null;
+}
 
 function parseOdds(value: unknown): number | null {
   const parsed = Number(value);
@@ -49,8 +70,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const body = await request.json();
-    const { game, betType, pick, odds, amount, notes, gameDate } = body;
+    const { game, betType, pick, odds, amount, notes, gameDate, parlayLegs } = body;
 
     if (typeof game !== "string" || !game.trim()) {
       return NextResponse.json({ error: "Game is required" }, { status: 400 });
@@ -62,7 +87,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Pick is required" }, { status: 400 });
     }
 
-    const parsedOdds = parseOdds(odds);
+    const parsedParlayLegs = betType === "Parlay" ? parseParlayLegs(parlayLegs) : null;
+    if (betType === "Parlay" && parsedParlayLegs === null) {
+      return NextResponse.json({ error: "A parlay requires at least two valid legs" }, { status: 400 });
+    }
+
+    const parsedOdds = parseOdds(parsedParlayLegs ? calculateCombinedAmericanOdds(parsedParlayLegs) : odds);
     if (parsedOdds === null) {
       return NextResponse.json({ error: "Odds must be a non-zero integer" }, { status: 400 });
     }
@@ -87,6 +117,7 @@ export async function POST(request: NextRequest) {
         payout: null,
         notes: notes != null && notes !== "" ? String(notes) : null,
         gameDate: parsedGameDate,
+        ...(parsedParlayLegs ? { parlayLegs: parsedParlayLegs as unknown as Prisma.InputJsonValue } : {}),
         status: "PENDING",
       },
     });

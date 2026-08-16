@@ -8,7 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BET_TYPES, calculateEstimatedPayout } from "@/lib/bets";
+import {
+  BET_TYPES,
+  calculateCombinedAmericanOdds,
+  calculateEstimatedPayout,
+  type ParlayLeg,
+} from "@/lib/bets";
 import { buildOddsGameLabel, type OddsSuggestion } from "@/lib/mlb-odds";
 
 export function AddBetForm() {
@@ -17,6 +22,7 @@ export function AddBetForm() {
   const [oddsLoading, setOddsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oddsSuggestions, setOddsSuggestions] = useState<OddsSuggestion[]>([]);
+  const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
 
   const [form, setForm] = useState<{
     game: string;
@@ -39,7 +45,46 @@ export function AddBetForm() {
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
+    if (e.target.name === "betType" && e.target.value !== "Parlay") {
+      setParlayLegs([]);
+    }
     setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  function updateParlaySummary(legs: ParlayLeg[]) {
+    setForm((current) => ({
+      ...current,
+      game: legs.map((leg) => leg.game).join(" + "),
+      pick: legs.map((leg) => leg.pick).join(" + "),
+      odds: legs.length > 0 ? String(calculateCombinedAmericanOdds(legs)) : "",
+    }));
+  }
+
+  function selectOddsSuggestion(suggestion: OddsSuggestion) {
+    if (form.betType !== "Parlay") {
+      setForm((current) => ({
+        ...current,
+        game: suggestion.game,
+        pick: suggestion.pick,
+        odds: String(suggestion.odds),
+      }));
+      return;
+    }
+
+    setParlayLegs((current) => {
+      if (current.some((leg) => leg.game === suggestion.game)) return current;
+      const nextLegs = [...current, { game: suggestion.game, pick: suggestion.pick, odds: suggestion.odds }];
+      updateParlaySummary(nextLegs);
+      return nextLegs;
+    });
+  }
+
+  function removeParlayLeg(game: string) {
+    setParlayLegs((current) => {
+      const nextLegs = current.filter((leg) => leg.game !== game);
+      updateParlaySummary(nextLegs);
+      return nextLegs;
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,6 +94,10 @@ export function AddBetForm() {
     const odds = parseInt(form.odds, 10);
     const amount = parseFloat(form.amount);
 
+    if (form.betType === "Parlay" && parlayLegs.length < 2) {
+      setError("Select at least two different games for a parlay.");
+      return;
+    }
     if (!form.game.trim() || !form.pick.trim()) {
       setError("Game and Pick are required.");
       return;
@@ -75,6 +124,7 @@ export function AddBetForm() {
           amount,
           notes: form.notes.trim() || null,
           gameDate: form.gameDate || null,
+          parlayLegs: form.betType === "Parlay" ? parlayLegs : null,
         }),
       });
 
@@ -172,19 +222,41 @@ export function AddBetForm() {
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs"
-                    onClick={() => {
-                      setForm((current) => ({
-                        ...current,
-                        game: suggestion.game,
-                        pick: suggestion.pick,
-                        odds: String(suggestion.odds),
-                      }));
-                    }}
+                    onClick={() => selectOddsSuggestion(suggestion)}
                   >
                     {suggestion.game} • {suggestion.pick} {suggestion.odds}
                   </Button>
                 ))}
               </div>
+              {form.betType === "Parlay" && (
+                <div className="space-y-2 border-t border-blue-200 pt-3">
+                  <p className="text-xs font-medium text-blue-800">
+                    Selected legs ({parlayLegs.length})
+                  </p>
+                  {parlayLegs.length === 0 ? (
+                    <p className="text-xs text-blue-700">Select two or more different games above.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {parlayLegs.map((leg) => (
+                        <div key={leg.game} className="flex items-center justify-between gap-3 rounded border border-blue-200 bg-white px-2.5 py-2 text-xs">
+                          <span className="min-w-0 truncate text-gray-700">
+                            {leg.game} • {leg.pick} ({leg.odds > 0 ? `+${leg.odds}` : leg.odds})
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 shrink-0 px-2 text-xs text-red-600"
+                            onClick={() => removeParlayLeg(leg.game)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -197,6 +269,7 @@ export function AddBetForm() {
                 placeholder="e.g. Yankees vs Red Sox"
                 value={form.game}
                 onChange={handleChange}
+                readOnly={form.betType === "Parlay"}
                 required
               />
             </div>
@@ -225,6 +298,7 @@ export function AddBetForm() {
                 placeholder="e.g. Yankees ML"
                 value={form.pick}
                 onChange={handleChange}
+                readOnly={form.betType === "Parlay"}
                 required
               />
             </div>
@@ -238,6 +312,7 @@ export function AddBetForm() {
                 placeholder="e.g. -110 or +150"
                 value={form.odds}
                 onChange={handleChange}
+                readOnly={form.betType === "Parlay"}
                 required
               />
             </div>

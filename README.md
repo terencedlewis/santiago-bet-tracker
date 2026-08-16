@@ -1,6 +1,6 @@
 # Santiago Bet Tracker
 
-A private MLB bet tracker built with Next.js, Prisma, and SQLite.
+A private MLB bet tracker built with Next.js, Prisma, and PostgreSQL.
 
 ## Features
 
@@ -15,9 +15,9 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 
 ## Tech Stack
 
-- Next.js 15 + React 19 + TypeScript
-- Prisma 7 + `@prisma/adapter-better-sqlite3`
-- SQLite (`dev.db`)
+- Next.js 16 + React 19 + TypeScript
+- Prisma 7 + `@prisma/adapter-pg`
+- PostgreSQL
 - Tailwind CSS 4
 - Recharts
 
@@ -40,14 +40,13 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
    ```env
    APP_PASSWORD=your-user-password
    ADMIN_PASSWORD=your-admin-password
+   DATABASE_URL=postgresql://postgres:your-password@localhost:5432/santiago_bet_tracker
    # Optional: strong signing secret for signed sessions (defaults to APP_PASSWORD if omitted)
    # AUTH_SESSION_SECRET=replace-with-a-long-random-string
    # Optional: disable auth for local testing (`true` bypasses password/session checks)
    # DISABLE_AUTH=true
    # Optional: session cookie lifetime (default 2592000 = 30 days)
    # AUTH_COOKIE_MAX_AGE_SECONDS=2592000
-   # Optional: override DB location (defaults to ./dev.db)
-   # SQLITE_DB_PATH=dev.db
    ```
 
 4. Generate Prisma client:
@@ -56,7 +55,7 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
    npx prisma generate
    ```
 
-5. Run migrations (creates local DB file if missing):
+5. Run migrations against the configured PostgreSQL database:
 
    ```bash
    npx prisma migrate dev
@@ -75,14 +74,16 @@ A private MLB bet tracker built with Next.js, Prisma, and SQLite.
 - `npm run start` – Run production build
 - `npm run lint` – Run ESLint
 
-## Notes on Data Files
+## Database
 
-- Local SQLite files (`dev.db`, `dev.db-journal`) are gitignored.
-- Seed/populate data locally using your own workflow (manual entry or SQL/Prisma scripts).
+The app requires a PostgreSQL database. Set `DATABASE_URL` before running Prisma
+commands or starting the app. Seed/populate data using your own workflow (manual
+entry or SQL/Prisma scripts).
 
 ## Authentication
 
-- Access is protected by a single password (`APP_PASSWORD`).
+- Access is protected by user and admin passwords (`APP_PASSWORD` and `ADMIN_PASSWORD`).
+- All bet mutations require an authenticated admin session.
 - Successful login sets an HTTP-only cookie session.
 - Unauthenticated API requests return `401`.
 - For local testing only, set `DISABLE_AUTH=true` to bypass login and API auth checks.

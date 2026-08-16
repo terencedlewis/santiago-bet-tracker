@@ -23,4 +23,5 @@ model Bet {
   payout    Float?
   notes     String?
   gameDate  DateTime?
+  parlayLegs Json?
 }

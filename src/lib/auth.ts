@@ -124,3 +124,22 @@ export async function verifySessionToken(token: string | undefined, secret = get
 
   return normalizedRole as AuthRole;
 }
+
+export async function getRequestRole(request: Request) {
+  if (!isAuthEnabled()) {
+    return "admin" as const;
+  }
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const authCookie = cookieHeader
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith(`${AUTH_COOKIE_NAME}=`));
+  const token = authCookie?.slice(AUTH_COOKIE_NAME.length + 1);
+
+  return verifySessionToken(token, getSessionSecret());
+}
+
+export async function isAdminRequest(request: Request) {
+  return (await getRequestRole(request)) === "admin";
+}
