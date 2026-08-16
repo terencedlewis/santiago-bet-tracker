@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { BET_STATUSES, type BetStatus } from "@/lib/bets";
 import { isAdminRequest } from "@/lib/auth";
 
@@ -7,27 +8,6 @@ type Params = { params: Promise<{ id: string }> };
 
 function isBetStatus(status: unknown): status is BetStatus {
   return typeof status === "string" && (BET_STATUSES as readonly string[]).includes(status);
-}
-
-function parsePositiveNumber(value: unknown): number | null {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return parsed;
-}
-
-function parseOptionalDate(value: unknown): Date | null {
-  if (value == null || value === "") {
-    return null;
-  }
-
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
 }
 
 export async function GET(_request: NextRequest, { params }: Params) {
@@ -71,23 +51,18 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!isBetStatus(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
-
-    let normalizedPayout: number | null = null;
-    if (status === "WIN") {
-      normalizedPayout = parsePositiveNumber(payout);
-      if (normalizedPayout === null) {
-        return NextResponse.json({ error: "Payout is required for WIN status" }, { status: 400 });
-      }
-      if (normalizedPayout <= existingBet.amount) {
-        return NextResponse.json({ error: "Payout must be greater than the wager amount for a win" }, { status: 400 });
-      }
+    if (status === "WIN" && (payout == null || Number(payout) <= 0)) {
+      return NextResponse.json({ error: "Payout is required for WIN status" }, { status: 400 });
+    }
+    if (status === "WIN" && Number(payout) <= existingBet.amount) {
+      return NextResponse.json({ error: "Payout must be greater than the wager amount for a win" }, { status: 400 });
     }
 
     const bet = await prisma.bet.update({
       where: { id: betId },
       data: {
         status,
-        payout: normalizedPayout,
+        payout: status === "WIN" ? Number(payout) : null,
       },
     });
 
@@ -111,31 +86,15 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 
     const body = await request.json();
-    const { game, betType, pick, odds, amount, notes, gameDate } = body;
+    const { game, betType, pick, odds, amount, notes, gameDate, legs } = body;
 
-    if (typeof game !== "string" || !game.trim()) {
-      return NextResponse.json({ error: "Game is required" }, { status: 400 });
-    }
-    if (typeof betType !== "string" || !betType.trim()) {
-      return NextResponse.json({ error: "Bet type is required" }, { status: 400 });
-    }
-    if (typeof pick !== "string" || !pick.trim()) {
-      return NextResponse.json({ error: "Pick is required" }, { status: 400 });
+    if (!game || !betType || amount === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const parsedOdds = Number(odds);
-    if (!Number.isFinite(parsedOdds) || !Number.isInteger(parsedOdds) || parsedOdds === 0) {
-      return NextResponse.json({ error: "Odds must be a non-zero integer" }, { status: 400 });
-    }
-
-    const parsedAmount = Number(amount);
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
-    }
-
-    const parsedGameDate = parseOptionalDate(gameDate);
-    if (gameDate !== undefined && gameDate !== null && gameDate !== "" && parsedGameDate === null) {
-      return NextResponse.json({ error: "Game date is invalid" }, { status: 400 });
+    const normalizedAmount = Number(amount);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      return NextResponse.json({ error: "Wager amount must be a positive number" }, { status: 400 });
     }
 
     const existingBet = await prisma.bet.findUnique({ where: { id: betId } });
@@ -143,17 +102,61 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Bet not found" }, { status: 404 });
     }
 
+    const isParlay = String(betType) === "Parlay";
+
+    if (isParlay) {
+      const parlayLegs = Array.isArray(legs) ? legs : [];
+      if (parlayLegs.length < 2) {
+        return NextResponse.json({ error: "Parlays require at least two legs" }, { status: 400 });
+      }
+
+      const hasValidLegs = parlayLegs.every((leg) => {
+        return leg && typeof leg === "object" && typeof leg.game === "string" && leg.game.trim() && typeof leg.selection === "string" && leg.selection.trim() && Number.isFinite(Number(leg.odds));
+      });
+
+      if (!hasValidLegs) {
+        return NextResponse.json({ error: "Each parlay leg must include a game, selection, and odds" }, { status: 400 });
+      }
+
+      const bet = await prisma.bet.update({
+        where: { id: betId },
+        data: {
+          game: String(game),
+          betType: "Parlay",
+          pick: null,
+          odds: null,
+          amount: normalizedAmount,
+          payout: existingBet.status === "WIN" ? existingBet.payout : null,
+          notes: notes ? String(notes) : null,
+          gameDate: gameDate ? new Date(gameDate) : null,
+          legs: parlayLegs.map((leg) => ({
+            game: String(leg.game).trim(),
+            selection: String(leg.selection).trim(),
+            odds: Number(leg.odds),
+            status: "PENDING",
+          })),
+        },
+      });
+
+      return NextResponse.json(bet);
+    }
+
+    if (!pick || odds === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
     const bet = await prisma.bet.update({
       where: { id: betId },
       data: {
-        game: game.trim(),
-        betType: betType.trim(),
-        pick: pick.trim(),
-        odds: parsedOdds,
-        amount: parsedAmount,
+        game: String(game),
+        betType: String(betType),
+        pick: String(pick),
+        odds: Number(odds),
+        amount: normalizedAmount,
         payout: existingBet.status === "WIN" ? existingBet.payout : null,
-        notes: notes != null && notes !== "" ? String(notes) : null,
-        gameDate: parsedGameDate,
+        notes: notes ? String(notes) : null,
+        gameDate: gameDate ? new Date(gameDate) : null,
+        legs: Prisma.JsonNull,
       },
     });
 

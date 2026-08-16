@@ -26,8 +26,20 @@ interface BetTableProps {
 type SortKey = "date" | "game" | "betType" | "odds" | "amount" | "payout" | "status";
 type SortDirection = "asc" | "desc";
 
-function formatOdds(odds: number): string {
+function formatOdds(odds: number | null): string {
+  if (odds == null) return "—";
   return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function getBetSummary(bet: BetRecord): string {
+  if (bet.betType === "Parlay") {
+    const legs = Array.isArray(bet.legs) ? bet.legs : [];
+    if (legs.length > 0) {
+      return legs.map((leg) => `${leg.game ? `${leg.game}: ` : ""}${leg.selection} ${formatOdds(leg.odds)}`).join(" • ");
+    }
+    return "Parlay";
+  }
+  return bet.pick ?? "—";
 }
 
 function formatCurrency(amount: number): string {
@@ -71,7 +83,7 @@ export function BetTable({ bets, showActions = false }: BetTableProps) {
         return a.betType.localeCompare(b.betType) * multiplier;
       }
       if (sortKey === "odds") {
-        return (a.odds - b.odds) * multiplier;
+        return ((a.odds ?? 0) - (b.odds ?? 0)) * multiplier;
       }
       if (sortKey === "amount") {
         return (a.amount - b.amount) * multiplier;
@@ -190,7 +202,7 @@ export function BetTable({ bets, showActions = false }: BetTableProps) {
                 <StatusBadge status={bet.status} />
               </div>
               <p className="font-medium text-sm text-gray-900">{bet.game}</p>
-              <p className="text-xs text-gray-600 mb-2">{bet.pick} • {bet.betType}</p>
+              <p className="text-xs text-gray-600 mb-2">{getBetSummary(bet)} • {bet.betType}</p>
               <div className="grid grid-cols-2 gap-y-1 text-xs">
                 <span className="text-gray-500">Odds</span>
                 <span className="text-right">{formatOdds(bet.odds)}</span>
@@ -316,8 +328,8 @@ export function BetTable({ bets, showActions = false }: BetTableProps) {
                   <TableCell className="text-xs text-gray-500">{displayDate}</TableCell>
                   <TableCell className="font-medium">{bet.game}</TableCell>
                   <TableCell>{bet.betType}</TableCell>
-                  <TableCell>{bet.pick}</TableCell>
-                  <TableCell>{formatOdds(bet.odds)}</TableCell>
+                  <TableCell>{getBetSummary(bet)}</TableCell>
+                  <TableCell>{bet.betType === "Parlay" ? "—" : formatOdds(bet.odds)}</TableCell>
                   <TableCell>{formatCurrency(bet.amount)}</TableCell>
                   <TableCell>
                     {bet.payout != null ? formatCurrency(bet.payout) : "—"}

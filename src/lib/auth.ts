@@ -1,4 +1,5 @@
 export const AUTH_COOKIE_NAME = "sbt_auth";
+export const AUTH_COOKIE_VALUE = "authenticated";
 export type AuthRole = "user" | "admin";
 const AUTH_ENABLED = process.env.DISABLE_AUTH !== "true";
 const encoder = new TextEncoder();
@@ -93,7 +94,11 @@ export function getPasswordForRole(role: AuthRole) {
 
 export function getSessionSecret() {
   const secret = process.env.AUTH_SESSION_SECRET?.trim();
-  return secret && secret.length > 0 ? secret : getAppPassword();
+  if (secret && secret.length > 0) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SESSION_SECRET environment variable is not configured. Please set it in .env.local");
+  }
+  return getAppPassword();
 }
 
 export async function buildSessionToken(role: AuthRole, secret = getSessionSecret()) {
@@ -112,7 +117,12 @@ export async function verifySessionToken(token: string | undefined, secret = get
     return null;
   }
 
-  const normalizedRole = decodeURIComponent(encodedRole);
+  let normalizedRole: string;
+  try {
+    normalizedRole = decodeURIComponent(encodedRole);
+  } catch {
+    return null;
+  }
   if (normalizedRole !== "user" && normalizedRole !== "admin") {
     return null;
   }

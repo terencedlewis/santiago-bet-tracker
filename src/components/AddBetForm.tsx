@@ -8,12 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  BET_TYPES,
-  calculateCombinedAmericanOdds,
-  calculateEstimatedPayout,
-  type ParlayLeg,
-} from "@/lib/bets";
+import { BET_TYPES, calculateEstimatedPayout, calculateParlayPayout } from "@/lib/bets";
 import { buildOddsGameLabel, type OddsSuggestion } from "@/lib/mlb-odds";
 
 export function AddBetForm() {
@@ -22,7 +17,6 @@ export function AddBetForm() {
   const [oddsLoading, setOddsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oddsSuggestions, setOddsSuggestions] = useState<OddsSuggestion[]>([]);
-  const [parlayLegs, setParlayLegs] = useState<ParlayLeg[]>([]);
 
   const [form, setForm] = useState<{
     game: string;
@@ -32,6 +26,7 @@ export function AddBetForm() {
     amount: string;
     notes: string;
     gameDate: string;
+    legs: Array<{ game: string; selection: string; odds: string }>;
   }>({
     game: "",
     betType: BET_TYPES[0],
@@ -40,74 +35,120 @@ export function AddBetForm() {
     amount: "",
     notes: "",
     gameDate: "",
+    legs: [
+      { game: "", selection: "", odds: "" },
+      { game: "", selection: "", odds: "" },
+    ],
   });
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) {
-    if (e.target.name === "betType" && e.target.value !== "Parlay") {
-      setParlayLegs([]);
-    }
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function updateParlaySummary(legs: ParlayLeg[]) {
+  function updateLeg(index: number, field: "game" | "selection" | "odds", value: string) {
     setForm((current) => ({
       ...current,
-      game: legs.map((leg) => leg.game).join(" + "),
-      pick: legs.map((leg) => leg.pick).join(" + "),
-      odds: legs.length > 0 ? String(calculateCombinedAmericanOdds(legs)) : "",
+      legs: current.legs.map((leg, legIndex) =>
+        legIndex === index ? { ...leg, [field]: value } : leg
+      ),
     }));
   }
 
-  function selectOddsSuggestion(suggestion: OddsSuggestion) {
-    if (form.betType !== "Parlay") {
-      setForm((current) => ({
-        ...current,
-        game: suggestion.game,
-        pick: suggestion.pick,
-        odds: String(suggestion.odds),
-      }));
-      return;
-    }
-
-    setParlayLegs((current) => {
-      if (current.some((leg) => leg.game === suggestion.game)) return current;
-      const nextLegs = [...current, { game: suggestion.game, pick: suggestion.pick, odds: suggestion.odds }];
-      updateParlaySummary(nextLegs);
-      return nextLegs;
-    });
+  function addParlayLeg() {
+    setForm((current) => ({
+      ...current,
+      legs: [...current.legs, { game: "", selection: "", odds: "" }],
+    }));
   }
 
-  function removeParlayLeg(game: string) {
-    setParlayLegs((current) => {
-      const nextLegs = current.filter((leg) => leg.game !== game);
-      updateParlaySummary(nextLegs);
-      return nextLegs;
-    });
+  function removeParlayLeg(index: number) {
+    setForm((current) => ({
+      ...current,
+      legs: current.legs.length > 2 ? current.legs.filter((_, legIndex) => legIndex !== index) : current.legs,
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const odds = parseInt(form.odds, 10);
     const amount = parseFloat(form.amount);
+    const isParlay = form.betType === "Parlay";
 
-    if (form.betType === "Parlay" && parlayLegs.length < 2) {
-      setError("Select at least two different games for a parlay.");
+    if (!form.game.trim()) {
+      setError("Game is required.");
       return;
     }
-    if (!form.game.trim() || !form.pick.trim()) {
-      setError("Game and Pick are required.");
+
+    if (isNaN(amount) || amount <= 0) {
+      setError("Wager amount must be a positive number.");
+      return;
+    }
+
+    if (isParlay) {
+      const validLegs = form.legs
+        .filter((leg) => leg.game.trim() || leg.selection.trim() || leg.odds.trim())
+        .map((leg) => ({
+          game: leg.game.trim(),
+          selection: leg.selection.trim(),
+          odds: parseInt(leg.odds, 10),
+        }));
+
+      if (validLegs.length < 2) {
+        setError("Parlays require at least two valid legs.");
+        return;
+      }
+
+      const hasInvalidLeg = validLegs.some((leg) => !leg.game || !leg.selection || Number.isNaN(leg.odds));
+      if (hasInvalidLeg) {
+        setError("Each parlay leg needs a game, selection, and valid odds.");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch("/api/bets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            game: form.game.trim(),
+            betType: form.betType,
+            amount,
+            notes: form.notes.trim() || null,
+            gameDate: form.gameDate || null,
+            legs: validLegs.map((leg) => ({
+              game: leg.game,
+              selection: leg.selection,
+              odds: leg.odds,
+            })),
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.error || "Failed to save bet.");
+          return;
+        }
+
+        router.push("/pending?success=created");
+        router.refresh();
+      } catch {
+        setError("Network error. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const odds = parseInt(form.odds, 10);
+    if (!form.pick.trim()) {
+      setError("Pick is required.");
       return;
     }
     if (isNaN(odds)) {
       setError("Odds must be a valid number (e.g. -110 or +150).");
-      return;
-    }
-    if (isNaN(amount) || amount <= 0) {
-      setError("Wager amount must be a positive number.");
       return;
     }
 
@@ -124,7 +165,6 @@ export function AddBetForm() {
           amount,
           notes: form.notes.trim() || null,
           gameDate: form.gameDate || null,
-          parlayLegs: form.betType === "Parlay" ? parlayLegs : null,
         }),
       });
 
@@ -145,8 +185,15 @@ export function AddBetForm() {
 
   const oddsNum = parseInt(form.odds, 10);
   const amountNum = parseFloat(form.amount);
-  const previewPayout =
-    !isNaN(oddsNum) && !isNaN(amountNum) && amountNum > 0
+  const isParlay = form.betType === "Parlay";
+  const parlayOdds = form.legs
+    .map((leg) => parseInt(leg.odds, 10))
+    .filter((odds) => !Number.isNaN(odds));
+  const previewPayout = isParlay
+    ? parlayOdds.length >= 2 && !isNaN(amountNum) && amountNum > 0
+      ? calculateParlayPayout(amountNum, parlayOdds)
+      : null
+    : !isNaN(oddsNum) && !isNaN(amountNum) && amountNum > 0
       ? calculateEstimatedPayout(amountNum, oddsNum)
       : null;
 
@@ -222,41 +269,19 @@ export function AddBetForm() {
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs"
-                    onClick={() => selectOddsSuggestion(suggestion)}
+                    onClick={() => {
+                      setForm((current) => ({
+                        ...current,
+                        game: suggestion.game,
+                        pick: suggestion.pick,
+                        odds: String(suggestion.odds),
+                      }));
+                    }}
                   >
                     {suggestion.game} • {suggestion.pick} {suggestion.odds}
                   </Button>
                 ))}
               </div>
-              {form.betType === "Parlay" && (
-                <div className="space-y-2 border-t border-blue-200 pt-3">
-                  <p className="text-xs font-medium text-blue-800">
-                    Selected legs ({parlayLegs.length})
-                  </p>
-                  {parlayLegs.length === 0 ? (
-                    <p className="text-xs text-blue-700">Select two or more different games above.</p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {parlayLegs.map((leg) => (
-                        <div key={leg.game} className="flex items-center justify-between gap-3 rounded border border-blue-200 bg-white px-2.5 py-2 text-xs">
-                          <span className="min-w-0 truncate text-gray-700">
-                            {leg.game} • {leg.pick} ({leg.odds > 0 ? `+${leg.odds}` : leg.odds})
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 shrink-0 px-2 text-xs text-red-600"
-                            onClick={() => removeParlayLeg(leg.game)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
 
@@ -269,7 +294,6 @@ export function AddBetForm() {
                 placeholder="e.g. Yankees vs Red Sox"
                 value={form.game}
                 onChange={handleChange}
-                readOnly={form.betType === "Parlay"}
                 required
               />
             </div>
@@ -290,32 +314,93 @@ export function AddBetForm() {
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="pick">Pick *</Label>
-              <Input
-                id="pick"
-                name="pick"
-                placeholder="e.g. Yankees ML"
-                value={form.pick}
-                onChange={handleChange}
-                readOnly={form.betType === "Parlay"}
-                required
-              />
-            </div>
+            {!isParlay && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pick">Pick *</Label>
+                  <Input
+                    id="pick"
+                    name="pick"
+                    placeholder="e.g. Yankees ML"
+                    value={form.pick}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="odds">Odds *</Label>
-              <Input
-                id="odds"
-                name="odds"
-                type="number"
-                placeholder="e.g. -110 or +150"
-                value={form.odds}
-                onChange={handleChange}
-                readOnly={form.betType === "Parlay"}
-                required
-              />
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="odds">Odds *</Label>
+                  <Input
+                    id="odds"
+                    name="odds"
+                    type="number"
+                    placeholder="e.g. -110 or +150"
+                    value={form.odds}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {isParlay && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Parlay Legs *</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addParlayLeg}>
+                    Add leg
+                  </Button>
+                </div>
+
+                <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+                  {form.legs.map((leg, index) => (
+                    <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_140px_auto] sm:items-end">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`leg-game-${index}`}>Game</Label>
+                        <Input
+                          id={`leg-game-${index}`}
+                          value={leg.game}
+                          onChange={(e) => updateLeg(index, "game", e.target.value)}
+                          placeholder="e.g. Yankees at Red Sox"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`leg-selection-${index}`}>Selection</Label>
+                        <Input
+                          id={`leg-selection-${index}`}
+                          value={leg.selection}
+                          onChange={(e) => updateLeg(index, "selection", e.target.value)}
+                          placeholder="e.g. Yankees ML"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`leg-odds-${index}`}>Odds</Label>
+                        <Input
+                          id={`leg-odds-${index}`}
+                          type="number"
+                          value={leg.odds}
+                          onChange={(e) => updateLeg(index, "odds", e.target.value)}
+                          placeholder="e.g. -110"
+                        />
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-10 text-red-600"
+                        onClick={() => removeParlayLeg(index)}
+                        disabled={form.legs.length <= 2}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="amount">Wager ($) *</Label>

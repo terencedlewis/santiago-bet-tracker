@@ -10,25 +10,35 @@ export const BET_TYPES = [
 export const BET_STATUSES = ["PENDING", "WIN", "LOSS", "PUSH"] as const;
 
 export type BetStatus = (typeof BET_STATUSES)[number];
+export type ParlayLegStatus = BetStatus;
 
-export interface ParlayLeg {
+export interface BetLeg {
   game: string;
-  pick: string;
+  selection: string;
   odds: number;
+  status?: ParlayLegStatus;
 }
 
 export interface BetRecord {
   id: number;
   game: string;
   betType: string;
-  pick: string;
-  odds: number;
+  pick: string | null;
+  odds: number | null;
   amount: number;
   status: string;
   payout: number | null;
   notes: string | null;
   createdAt: string;
   gameDate: string | null;
+  legs?: BetLeg[] | null;
+}
+
+export interface ParlayLegInput {
+  game?: string;
+  selection?: string;
+  odds: number;
+  status: ParlayLegStatus;
 }
 
 /**
@@ -44,11 +54,64 @@ export function calculateEstimatedPayout(amount: number, odds: number): number {
   return amount + (amount * 100) / Math.abs(odds);
 }
 
-export function calculateCombinedAmericanOdds(legs: ParlayLeg[]): number {
-  const combinedDecimalOdds = legs.reduce(
-    (total, leg) => total * (leg.odds > 0 ? 1 + leg.odds / 100 : 1 + 100 / Math.abs(leg.odds)),
-    1
-  );
+export function americanToDecimalOdds(odds: number): number {
+  if (odds > 0) {
+    return 1 + odds / 100;
+  }
+  return 1 + 100 / Math.abs(odds);
+}
 
-  return Math.round((combinedDecimalOdds - 1) * 100);
+export function calculateParlayPayout(stake: number, oddsList: number[]): number {
+  const multiplier = oddsList.reduce((total, odds) => total * americanToDecimalOdds(odds), 1);
+  return stake * multiplier;
+}
+
+export function normalizeParlayLegs(value: unknown): BetLeg[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry): BetLeg | null => {
+      if (!entry || typeof entry !== "object") return null;
+      const candidate = entry as Record<string, unknown>;
+      const game = typeof candidate.game === "string" ? candidate.game.trim() : "";
+      const selection = typeof candidate.selection === "string" ? candidate.selection.trim() : "";
+      const odds = Number(candidate.odds);
+      if (!selection || !Number.isFinite(odds)) {
+        return null;
+      }
+      return { game, selection, odds: Number(odds), status: "PENDING" };
+    })
+    .filter((entry): entry is BetLeg => entry !== null);
+}
+
+export function calculateParlayResult(
+  stake: number,
+  legs: ParlayLegInput[]
+): {
+  status: BetStatus | "PENDING";
+  totalPayout: number | null;
+  profit: number | null;
+} {
+  const activeLegs = legs.filter((leg) => leg.status !== "PUSH");
+
+  if (activeLegs.length === 0) {
+    return { status: "PUSH", totalPayout: 0, profit: 0 };
+  }
+
+  if (activeLegs.some((leg) => leg.status === "LOSS")) {
+    return { status: "LOSS", totalPayout: 0, profit: -stake };
+  }
+
+  if (activeLegs.some((leg) => leg.status === "PENDING")) {
+    return { status: "PENDING", totalPayout: null, profit: null };
+  }
+
+  const totalMultiplier = activeLegs.reduce((total, leg) => total * americanToDecimalOdds(leg.odds), 1);
+  const totalPayout = stake * totalMultiplier;
+
+  return {
+    status: "WIN",
+    totalPayout,
+    profit: totalPayout - stake,
+  };
 }

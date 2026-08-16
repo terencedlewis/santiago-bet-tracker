@@ -14,7 +14,7 @@ export async function GET() {
     const response = await fetch(
       "https://api.the-odds-api.com/v4/sports/baseball_mlb/odds?regions=us&markets=h2h&oddsFormat=american&apiKey=" +
         encodeURIComponent(API_KEY),
-      { headers: { Accept: "application/json" } }
+      { headers: { Accept: "application/json" }, next: { revalidate: 60 } }
     );
 
     if (!response.ok) {

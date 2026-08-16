@@ -11,7 +11,7 @@ import {
   XCircle,
   MinusCircle,
 } from "lucide-react";
-import { BET_TYPES } from "@/lib/bets";
+import { BET_TYPES, normalizeParlayLegs } from "@/lib/bets";
 
 export const dynamic = "force-dynamic";
 
@@ -158,6 +158,7 @@ export default async function AdminPage() {
               ...b,
               createdAt: b.createdAt.toISOString(),
               gameDate: b.gameDate ? b.gameDate.toISOString() : null,
+              legs: normalizeParlayLegs(b.legs),
             }))}
           />
         </div>

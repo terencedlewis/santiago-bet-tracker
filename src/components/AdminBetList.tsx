@@ -36,8 +36,8 @@ function exportToCsv(rows: BetRecord[]) {
       date,
       b.game,
       b.betType,
-      b.pick,
-      String(b.odds),
+      b.pick ?? "",
+      b.odds != null ? String(b.odds) : "",
       b.amount.toFixed(2),
       b.status,
       b.payout != null ? b.payout.toFixed(2) : "",
@@ -83,9 +83,15 @@ export function AdminBetList({ bets }: AdminBetListProps) {
 
       if (search.trim()) {
         const q = search.toLowerCase();
+        const pickText = (b.pick ?? "").toLowerCase();
+        const parlayText = Array.isArray(b.legs)
+          ? b.legs.map((leg) => `${leg.game} ${leg.selection} ${leg.odds}`).join(" ").toLowerCase()
+          : "";
+
         if (
           !b.game.toLowerCase().includes(q) &&
-          !b.pick.toLowerCase().includes(q) &&
+          !pickText.includes(q) &&
+          !parlayText.includes(q) &&
           !(b.notes ?? "").toLowerCase().includes(q)
         ) {
           return false;

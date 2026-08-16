@@ -2,11 +2,15 @@
   "name": "santiago-bet-tracker",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import tsx --test tests/*.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

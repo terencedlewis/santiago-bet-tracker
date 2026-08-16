@@ -1,55 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminRequest } from "@/lib/auth";
-import { calculateCombinedAmericanOdds, type ParlayLeg } from "@/lib/bets";
-import { Prisma } from "@/generated/prisma/client";
-
-function parseParlayLegs(value: unknown): ParlayLeg[] | null {
-  if (!Array.isArray(value) || value.length < 2) return null;
-
-  const legs = value.filter((leg): leg is Record<string, unknown> => typeof leg === "object" && leg !== null);
-  if (legs.length !== value.length) return null;
-
-  const parsed = legs.map((leg) => ({
-    game: typeof leg.game === "string" ? leg.game.trim() : "",
-    pick: typeof leg.pick === "string" ? leg.pick.trim() : "",
-    odds: Number(leg.odds),
-  }));
-
-  const hasUniqueGames = new Set(parsed.map((leg) => leg.game)).size === parsed.length;
-  return hasUniqueGames && parsed.every((leg) => leg.game && leg.pick && Number.isInteger(leg.odds) && leg.odds !== 0)
-    ? parsed
-    : null;
-}
-
-function parseOdds(value: unknown): number | null {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed === 0) {
-    return null;
-  }
-  return parsed;
-}
-
-function parsePositiveNumber(value: unknown): number | null {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-  return parsed;
-}
-
-function parseOptionalDate(value: unknown): Date | null {
-  if (value == null || value === "") {
-    return null;
-  }
-
-  const date = new Date(String(value));
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -75,49 +26,70 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { game, betType, pick, odds, amount, notes, gameDate, parlayLegs } = body;
+    const { game, betType, pick, odds, amount, notes, gameDate, legs } = body;
 
-    if (typeof game !== "string" || !game.trim()) {
-      return NextResponse.json({ error: "Game is required" }, { status: 400 });
-    }
-    if (typeof betType !== "string" || !betType.trim()) {
-      return NextResponse.json({ error: "Bet type is required" }, { status: 400 });
-    }
-    if (typeof pick !== "string" || !pick.trim()) {
-      return NextResponse.json({ error: "Pick is required" }, { status: 400 });
+    if (!game || !betType || amount === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const parsedParlayLegs = betType === "Parlay" ? parseParlayLegs(parlayLegs) : null;
-    if (betType === "Parlay" && parsedParlayLegs === null) {
-      return NextResponse.json({ error: "A parlay requires at least two valid legs" }, { status: 400 });
+    const normalizedAmount = Number(amount);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+      return NextResponse.json({ error: "Wager amount must be a positive number" }, { status: 400 });
     }
 
-    const parsedOdds = parseOdds(parsedParlayLegs ? calculateCombinedAmericanOdds(parsedParlayLegs) : odds);
-    if (parsedOdds === null) {
-      return NextResponse.json({ error: "Odds must be a non-zero integer" }, { status: 400 });
+    const isParlay = String(betType) === "Parlay";
+
+    if (isParlay) {
+      const parlayLegs = Array.isArray(legs) ? legs : [];
+      if (parlayLegs.length < 2) {
+        return NextResponse.json({ error: "Parlays require at least two legs" }, { status: 400 });
+      }
+
+      const hasValidLegs = parlayLegs.every((leg) => {
+        return leg && typeof leg === "object" && typeof leg.game === "string" && leg.game.trim() && typeof leg.selection === "string" && leg.selection.trim() && Number.isFinite(Number(leg.odds));
+      });
+
+      if (!hasValidLegs) {
+        return NextResponse.json({ error: "Each parlay leg must include a game, selection, and odds" }, { status: 400 });
+      }
+
+      const bet = await prisma.bet.create({
+        data: {
+          game: String(game),
+          betType: "Parlay",
+          pick: null,
+          odds: null,
+          amount: normalizedAmount,
+          payout: null,
+          notes: notes ? String(notes) : null,
+          gameDate: gameDate ? new Date(gameDate) : null,
+          status: "PENDING",
+          legs: parlayLegs.map((leg) => ({
+            game: String(leg.game).trim(),
+            selection: String(leg.selection).trim(),
+            odds: Number(leg.odds),
+            status: "PENDING",
+          })),
+        },
+      });
+
+      return NextResponse.json(bet, { status: 201 });
     }
 
-    const parsedAmount = parsePositiveNumber(amount);
-    if (parsedAmount === null) {
-      return NextResponse.json({ error: "Amount must be a positive number" }, { status: 400 });
-    }
-
-    const parsedGameDate = parseOptionalDate(gameDate);
-    if (gameDate !== undefined && gameDate !== null && gameDate !== "" && parsedGameDate === null) {
-      return NextResponse.json({ error: "Game date is invalid" }, { status: 400 });
+    if (!pick || odds === undefined) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const bet = await prisma.bet.create({
       data: {
-        game: game.trim(),
-        betType: betType.trim(),
-        pick: pick.trim(),
-        odds: parsedOdds,
-        amount: parsedAmount,
+        game: String(game),
+        betType: String(betType),
+        pick: String(pick),
+        odds: Number(odds),
+        amount: normalizedAmount,
         payout: null,
-        notes: notes != null && notes !== "" ? String(notes) : null,
-        gameDate: parsedGameDate,
-        ...(parsedParlayLegs ? { parlayLegs: parsedParlayLegs as unknown as Prisma.InputJsonValue } : {}),
+        notes: notes ? String(notes) : null,
+        gameDate: gameDate ? new Date(gameDate) : null,
         status: "PENDING",
       },
     });
