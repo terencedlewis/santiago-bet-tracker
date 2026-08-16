@@ -26,7 +26,7 @@ export function AddBetForm() {
     amount: string;
     notes: string;
     gameDate: string;
-    legs: Array<{ selection: string; odds: string }>;
+    legs: Array<{ game: string; selection: string; odds: string }>;
   }>({
     game: "",
     betType: BET_TYPES[0],
@@ -36,8 +36,8 @@ export function AddBetForm() {
     notes: "",
     gameDate: "",
     legs: [
-      { selection: "", odds: "" },
-      { selection: "", odds: "" },
+      { game: "", selection: "", odds: "" },
+      { game: "", selection: "", odds: "" },
     ],
   });
 
@@ -47,7 +47,7 @@ export function AddBetForm() {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function updateLeg(index: number, field: "selection" | "odds", value: string) {
+  function updateLeg(index: number, field: "game" | "selection" | "odds", value: string) {
     setForm((current) => ({
       ...current,
       legs: current.legs.map((leg, legIndex) =>
@@ -59,7 +59,7 @@ export function AddBetForm() {
   function addParlayLeg() {
     setForm((current) => ({
       ...current,
-      legs: [...current.legs, { selection: "", odds: "" }],
+      legs: [...current.legs, { game: "", selection: "", odds: "" }],
     }));
   }
 
@@ -89,8 +89,9 @@ export function AddBetForm() {
 
     if (isParlay) {
       const validLegs = form.legs
-        .filter((leg) => leg.selection.trim() || leg.odds.trim())
+        .filter((leg) => leg.game.trim() || leg.selection.trim() || leg.odds.trim())
         .map((leg) => ({
+          game: leg.game.trim(),
           selection: leg.selection.trim(),
           odds: parseInt(leg.odds, 10),
         }));
@@ -100,9 +101,9 @@ export function AddBetForm() {
         return;
       }
 
-      const hasInvalidLeg = validLegs.some((leg) => !leg.selection || Number.isNaN(leg.odds));
+      const hasInvalidLeg = validLegs.some((leg) => !leg.game || !leg.selection || Number.isNaN(leg.odds));
       if (hasInvalidLeg) {
-        setError("Each parlay leg needs a selection and valid odds.");
+        setError("Each parlay leg needs a game, selection, and valid odds.");
         return;
       }
 
@@ -118,6 +119,7 @@ export function AddBetForm() {
             notes: form.notes.trim() || null,
             gameDate: form.gameDate || null,
             legs: validLegs.map((leg) => ({
+              game: leg.game,
               selection: leg.selection,
               odds: leg.odds,
             })),
@@ -352,7 +354,17 @@ export function AddBetForm() {
 
                 <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
                   {form.legs.map((leg, index) => (
-                    <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px_auto] sm:items-end">
+                    <div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_140px_auto] sm:items-end">
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`leg-game-${index}`}>Game</Label>
+                        <Input
+                          id={`leg-game-${index}`}
+                          value={leg.game}
+                          onChange={(e) => updateLeg(index, "game", e.target.value)}
+                          placeholder="e.g. Yankees at Red Sox"
+                        />
+                      </div>
+
                       <div className="space-y-1.5">
                         <Label htmlFor={`leg-selection-${index}`}>Selection</Label>
                         <Input
