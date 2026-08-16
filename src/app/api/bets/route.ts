@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
       }
 
       const hasValidLegs = parlayLegs.every((leg) => {
-        return leg && typeof leg === "object" && typeof leg.selection === "string" && leg.selection.trim() && Number.isFinite(Number(leg.odds));
+        return leg && typeof leg === "object" && typeof leg.game === "string" && leg.game.trim() && typeof leg.selection === "string" && leg.selection.trim() && Number.isFinite(Number(leg.odds));
       });
 
       if (!hasValidLegs) {
-        return NextResponse.json({ error: "Each parlay leg must include a selection and odds" }, { status: 400 });
+        return NextResponse.json({ error: "Each parlay leg must include a game, selection, and odds" }, { status: 400 });
       }
 
       const bet = await prisma.bet.create({
@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
           gameDate: gameDate ? new Date(gameDate) : null,
           status: "PENDING",
           legs: parlayLegs.map((leg) => ({
+            game: String(leg.game).trim(),
             selection: String(leg.selection).trim(),
             odds: Number(leg.odds),
             status: "PENDING",

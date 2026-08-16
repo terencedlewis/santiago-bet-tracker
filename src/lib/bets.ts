@@ -13,6 +13,7 @@ export type BetStatus = (typeof BET_STATUSES)[number];
 export type ParlayLegStatus = BetStatus;
 
 export interface BetLeg {
+  game: string;
   selection: string;
   odds: number;
   status?: ParlayLegStatus;
@@ -34,6 +35,7 @@ export interface BetRecord {
 }
 
 export interface ParlayLegInput {
+  game?: string;
   selection?: string;
   odds: number;
   status: ParlayLegStatus;
@@ -71,12 +73,13 @@ export function normalizeParlayLegs(value: unknown): BetLeg[] {
     .map((entry): BetLeg | null => {
       if (!entry || typeof entry !== "object") return null;
       const candidate = entry as Record<string, unknown>;
+      const game = typeof candidate.game === "string" ? candidate.game.trim() : "";
       const selection = typeof candidate.selection === "string" ? candidate.selection.trim() : "";
       const odds = Number(candidate.odds);
       if (!selection || !Number.isFinite(odds)) {
         return null;
       }
-      return { selection, odds: Number(odds), status: "PENDING" };
+      return { game, selection, odds: Number(odds), status: "PENDING" };
     })
     .filter((entry): entry is BetLeg => entry !== null);
 }

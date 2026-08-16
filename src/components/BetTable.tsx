@@ -35,7 +35,7 @@ function getBetSummary(bet: BetRecord): string {
   if (bet.betType === "Parlay") {
     const legs = Array.isArray(bet.legs) ? bet.legs : [];
     if (legs.length > 0) {
-      return legs.map((leg) => `${leg.selection} ${formatOdds(leg.odds)}`).join(" • ");
+      return legs.map((leg) => `${leg.game ? `${leg.game}: ` : ""}${leg.selection} ${formatOdds(leg.odds)}`).join(" • ");
     }
     return "Parlay";
   }
