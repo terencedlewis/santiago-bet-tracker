@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { BET_STATUSES, type BetStatus } from "@/lib/bets";
+import { isAdminRequest } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -30,6 +31,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const { id } = await params;
     const betId = Number(id);
     if (!Number.isInteger(betId)) {
@@ -70,6 +75,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const { id } = await params;
     const betId = Number(id);
     if (!Number.isInteger(betId)) {
@@ -78,8 +87,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const body = await request.json();
     const { game, betType, pick, odds, amount, notes, gameDate, legs } = body;
+    const normalizedGame = typeof game === "string" ? game.trim() : "";
+    const normalizedBetType = typeof betType === "string" ? betType.trim() : "";
 
-    if (!game || !betType || amount === undefined) {
+    if (!normalizedGame || !normalizedBetType || amount === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -93,7 +104,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Bet not found" }, { status: 404 });
     }
 
-    const isParlay = String(betType) === "Parlay";
+    const isParlay = normalizedBetType === "Parlay";
 
     if (isParlay) {
       const parlayLegs = Array.isArray(legs) ? legs : [];
@@ -112,7 +123,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       const bet = await prisma.bet.update({
         where: { id: betId },
         data: {
-          game: String(game),
+          game: normalizedGame,
           betType: "Parlay",
           pick: null,
           odds: null,
@@ -124,7 +135,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
             game: String(leg.game).trim(),
             selection: String(leg.selection).trim(),
             odds: Number(leg.odds),
-            status: "PENDING",
+            status: isBetStatus(leg.status) ? leg.status : "PENDING",
           })),
         },
       });
@@ -132,17 +143,22 @@ export async function PUT(request: NextRequest, { params }: Params) {
       return NextResponse.json(bet);
     }
 
-    if (!pick || odds === undefined) {
+    const normalizedPick = typeof pick === "string" ? pick.trim() : "";
+    if (!normalizedPick || odds === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    const normalizedOdds = Number(odds);
+    if (!Number.isFinite(normalizedOdds) || !Number.isInteger(normalizedOdds) || normalizedOdds === 0) {
+      return NextResponse.json({ error: "Odds must be a non-zero integer" }, { status: 400 });
     }
 
     const bet = await prisma.bet.update({
       where: { id: betId },
       data: {
-        game: String(game),
-        betType: String(betType),
-        pick: String(pick),
-        odds: Number(odds),
+        game: normalizedGame,
+        betType: normalizedBetType,
+        pick: normalizedPick,
+        odds: normalizedOdds,
         amount: normalizedAmount,
         payout: existingBet.status === "WIN" ? existingBet.payout : null,
         notes: notes ? String(notes) : null,
@@ -158,8 +174,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: Params) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const { id } = await params;
     const betId = Number(id);
     if (!Number.isInteger(betId)) {

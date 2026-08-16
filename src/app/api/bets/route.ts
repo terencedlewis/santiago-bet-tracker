@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAdminRequest } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,10 +21,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!(await isAdminRequest(request))) {
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { game, betType, pick, odds, amount, notes, gameDate, legs } = body;
+    const normalizedGame = typeof game === "string" ? game.trim() : "";
+    const normalizedBetType = typeof betType === "string" ? betType.trim() : "";
 
-    if (!game || !betType || amount === undefined) {
+    if (!normalizedGame || !normalizedBetType || amount === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -32,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Wager amount must be a positive number" }, { status: 400 });
     }
 
-    const isParlay = String(betType) === "Parlay";
+    const isParlay = normalizedBetType === "Parlay";
 
     if (isParlay) {
       const parlayLegs = Array.isArray(legs) ? legs : [];
@@ -50,7 +57,7 @@ export async function POST(request: NextRequest) {
 
       const bet = await prisma.bet.create({
         data: {
-          game: String(game),
+          game: normalizedGame,
           betType: "Parlay",
           pick: null,
           odds: null,
@@ -71,16 +78,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(bet, { status: 201 });
     }
 
-    if (!pick || odds === undefined) {
+    const normalizedPick = typeof pick === "string" ? pick.trim() : "";
+    if (!normalizedPick || odds === undefined) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    const normalizedOdds = Number(odds);
+    if (!Number.isFinite(normalizedOdds) || !Number.isInteger(normalizedOdds) || normalizedOdds === 0) {
+      return NextResponse.json({ error: "Odds must be a non-zero integer" }, { status: 400 });
     }
 
     const bet = await prisma.bet.create({
       data: {
-        game: String(game),
-        betType: String(betType),
-        pick: String(pick),
-        odds: Number(odds),
+        game: normalizedGame,
+        betType: normalizedBetType,
+        pick: normalizedPick,
+        odds: normalizedOdds,
         amount: normalizedAmount,
         payout: null,
         notes: notes ? String(notes) : null,

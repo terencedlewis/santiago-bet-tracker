@@ -79,7 +79,11 @@ export function normalizeParlayLegs(value: unknown): BetLeg[] {
       if (!selection || !Number.isFinite(odds)) {
         return null;
       }
-      return { game, selection, odds: Number(odds), status: "PENDING" };
+      const status =
+        typeof candidate.status === "string" && (BET_STATUSES as readonly string[]).includes(candidate.status)
+          ? (candidate.status as ParlayLegStatus)
+          : "PENDING";
+      return { game, selection, odds, status };
     })
     .filter((entry): entry is BetLeg => entry !== null);
 }
@@ -88,7 +92,7 @@ export function calculateParlayResult(
   stake: number,
   legs: ParlayLegInput[]
 ): {
-  status: BetStatus | "PENDING";
+  status: BetStatus;
   totalPayout: number | null;
   profit: number | null;
 } {
